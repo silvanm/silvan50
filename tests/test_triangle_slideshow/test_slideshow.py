@@ -15,6 +15,7 @@ from triangle_slideshow.transition import create_transition
 from tests.test_triangle_slideshow.fixtures import (
     TRIANGLES_SET_A,
     TRIANGLES_SET_B,
+    TRIANGLES_SET_C,
     EXPECTED_PAIRINGS,
     SAMPLE_SLIDE_A,
     SAMPLE_SLIDE_B,
@@ -123,7 +124,7 @@ class TestSlideshowClass:
             slideshow = Slideshow()
             slideshow.add_slide(TRIANGLES_SET_A)
             slideshow.add_slide(TRIANGLES_SET_B)
-            slideshow.add_slide(TRIANGLES_SET_A)  # Add a third slide
+            slideshow.add_slide(TRIANGLES_SET_C)  # Add a third slide
 
             # Act
             result = slideshow.auto_create_transitions(
@@ -148,7 +149,7 @@ class TestSlideshowClass:
             slideshow = Slideshow()
             slideshow.add_slide(TRIANGLES_SET_A)
             slideshow.add_slide(TRIANGLES_SET_B)
-            slideshow.add_slide(TRIANGLES_SET_A)  # Add a third slide
+            slideshow.add_slide(TRIANGLES_SET_C)  # Add a third slide
 
             # Act
             result = slideshow.auto_create_transitions(
@@ -189,6 +190,70 @@ class TestSlideshowClass:
         # Assert
         assert result == 0
         assert len(slideshow.transitions) == 0
+
+    def test_round_robin_transitions(self):
+        """Test creating round-robin transitions between three slides (1 -> 2 -> 3 -> 1)."""
+        # Patch the module where create_transition is imported from
+        with patch("triangle_slideshow.slideshow.create_transition") as mock_create:
+            # Arrange
+            mock_create.return_value = EXPECTED_PAIRINGS
+            slideshow = Slideshow()
+
+            # Create three slides with different triangle sets
+            slide1_idx = slideshow.add_slide(TRIANGLES_SET_A, name="slide_1")
+            slide2_idx = slideshow.add_slide(TRIANGLES_SET_B, name="slide_2")
+            slide3_idx = slideshow.add_slide(TRIANGLES_SET_C, name="slide_3")
+
+            # Act - Create transitions in round-robin pattern
+            slideshow.add_transition(
+                slide1_idx, slide2_idx, max_triangles=1000
+            )  # 1 -> 2
+            slideshow.add_transition(
+                slide2_idx, slide3_idx, max_triangles=1000
+            )  # 2 -> 3
+            slideshow.add_transition(
+                slide3_idx, slide1_idx, max_triangles=1000
+            )  # 3 -> 1
+
+            # Assert
+            assert len(slideshow.transitions) == 3
+
+            # Verify the transition pattern
+            transitions = [(t["from"], t["to"]) for t in slideshow.transitions]
+            assert (slide1_idx, slide2_idx) in transitions  # 1 -> 2
+            assert (slide2_idx, slide3_idx) in transitions  # 2 -> 3
+            assert (slide3_idx, slide1_idx) in transitions  # 3 -> 1
+
+            # Verify each slide has exactly one incoming and one outgoing transition
+            incoming = [0, 0, 0]
+            outgoing = [0, 0, 0]
+
+            for from_idx, to_idx in transitions:
+                outgoing[from_idx] += 1
+                incoming[to_idx] += 1
+
+            # Each slide should have exactly one incoming and one outgoing transition
+            assert incoming == [1, 1, 1]
+            assert outgoing == [1, 1, 1]
+
+            # Verify the call count to create_transition
+            assert mock_create.call_count == 3
+
+            # Verify the call arguments to ensure each triangle set is used correctly
+            expected_calls = [
+                (TRIANGLES_SET_A, TRIANGLES_SET_B, 1000),
+                (TRIANGLES_SET_B, TRIANGLES_SET_C, 1000),
+                (TRIANGLES_SET_C, TRIANGLES_SET_A, 1000),
+            ]
+
+            # Check all calls have been made (order doesn't matter in set comparison)
+            actual_calls = []
+            for call in mock_create.call_args_list:
+                args, _ = call
+                actual_calls.append(args)
+
+            # Convert to set for order-independent comparison
+            assert set(map(str, actual_calls)) == set(map(str, expected_calls))
 
     def test_to_dict(self):
         """Test converting a slideshow to a dictionary."""
