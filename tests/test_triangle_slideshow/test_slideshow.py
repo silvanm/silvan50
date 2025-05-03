@@ -255,6 +255,35 @@ class TestSlideshowClass:
             # Convert to set for order-independent comparison
             assert set(map(str, actual_calls)) == set(map(str, expected_calls))
 
+    def test_round_robin_transitions_method(self):
+        """Test the round_robin_transitions method that creates cyclic transitions (1 -> 2 -> 3 -> 1)."""
+        # Patch the module where create_transition is imported from
+        with patch("triangle_slideshow.slideshow.create_transition") as mock_create:
+            # Arrange
+            mock_create.return_value = EXPECTED_PAIRINGS
+            slideshow = Slideshow()
+
+            # Create three slides with different triangle sets
+            slideshow.add_slide(TRIANGLES_SET_A, name="slide_1")
+            slideshow.add_slide(TRIANGLES_SET_B, name="slide_2")
+            slideshow.add_slide(TRIANGLES_SET_C, name="slide_3")
+
+            # Act - Use the round_robin_transitions method
+            count = slideshow.round_robin_transitions(max_triangles=1000)
+
+            # Assert
+            assert count == 3
+            assert len(slideshow.transitions) == 3
+
+            # Verify the transition pattern
+            transitions = [(t["from"], t["to"]) for t in slideshow.transitions]
+            assert (0, 1) in transitions  # 1 -> 2
+            assert (1, 2) in transitions  # 2 -> 3
+            assert (2, 0) in transitions  # 3 -> 1
+
+            # Verify the call count to create_transition
+            assert mock_create.call_count == 3
+
     def test_to_dict(self):
         """Test converting a slideshow to a dictionary."""
         # Patch the module where create_transition is imported from

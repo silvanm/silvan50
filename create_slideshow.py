@@ -65,6 +65,13 @@ def main():
         help="Create transitions between all pairs of slides (default: only consecutive)",
     )
 
+    parser.add_argument(
+        "--round-robin",
+        "-r",
+        action="store_true",
+        help="Create round-robin transitions (last slide transitions back to first)",
+    )
+
     args = parser.parse_args()
 
     # Process input args
@@ -121,9 +128,18 @@ def main():
 
     # Create transitions
     print("Creating transitions between slides...")
-    transition_count = slideshow.auto_create_transitions(
-        max_triangles=args.max_triangles, sequential_only=not args.all_transitions
-    )
+    transition_count = 0
+
+    if args.round_robin:
+        # Use round-robin transitions (including from last to first)
+        transition_count = slideshow.round_robin_transitions(
+            max_triangles=args.max_triangles
+        )
+    else:
+        # Use standard transitions
+        transition_count = slideshow.auto_create_transitions(
+            max_triangles=args.max_triangles, sequential_only=not args.all_transitions
+        )
 
     print(f"Created {transition_count} transitions")
 

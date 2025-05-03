@@ -92,6 +92,31 @@ class Slideshow:
 
         return count
 
+    def round_robin_transitions(self, max_triangles=None):
+        """
+        Create round-robin transitions between slides (1-2-3-1).
+
+        This creates transitions between consecutive slides and adds a final
+        transition from the last slide back to the first slide to complete the cycle.
+
+        Args:
+            max_triangles (int, optional): Maximum number of triangles to use
+
+        Returns:
+            int: Number of transitions created
+        """
+        if len(self.slides) < 2:
+            return 0
+
+        # Create transitions between consecutive slides
+        count = self.auto_create_transitions(max_triangles, sequential_only=True)
+
+        # Add the final transition from last slide back to first
+        self.add_transition(len(self.slides) - 1, 0, max_triangles)
+        count += 1
+
+        return count
+
     def to_dict(self):
         """
         Convert the slideshow to a dictionary for serialization.
