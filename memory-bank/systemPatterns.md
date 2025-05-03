@@ -1,5 +1,7 @@
 # System Patterns: Triangler & Visualizer
 
+> **Note:** For a visual representation of the complete system workflow, see [workflow_diagram.md](workflow_diagram.md)
+
 ## Backend (`triangler` Python tool)
 
 **Core Logic Encapsulation:**
@@ -23,33 +25,108 @@
 *   Logic for calculating triangle data (coordinates, color) is centralized.
 *   File saving logic (image or JSON) is within the `convert` function, triggered by `output_path`.
 
+## Batch Processing & Transition Generation System
+
+**Architecture:**
+
+*   **Modular Package:** Code organized into `triangle_slideshow` Python package with specialized modules.
+*   **Entry Point:** `create_slideshow.py` provides a unified CLI for all functionality.
+*   **Core Components:**
+    * `processor.py`: Handles image processing with triangler
+    * `transition.py`: Manages transition creation using the Hungarian algorithm
+    * `slideshow.py`: Provides data structures and operations for slideshows
+*   **Shell Script Interface:** Simplified interface for batch processing (legacy).
+
+**Data Flow:**
+
+1. Input images from a directory are processed by `triangle_slideshow.processor` module
+2. Triangle representations are generated for each image
+3. The `Slideshow` class from `slideshow.py` manages the collection of slides
+4. Transitions between slides are created using the Hungarian algorithm from `transition.py`
+5. The complete slideshow with transitions is serialized to JSON format
+
+**Triangle Transitions:**
+
+*   Two transition modes available:
+    * Sequential (default): Creates transitions between consecutive slides (1→2, 2→3)
+    * Round-robin: Creates a circular pattern including transition from last to first (1→2→3→1)
+*   Both modes use the Hungarian algorithm for optimal triangle matching
+*   `create_transition` function calculates cost matrix based on centroid distances
+*   `linear_sum_assignment` from scipy.optimize provides the optimal pairing solution
+
+**Slideshow Data Model:**
+
+*   Core `Slideshow` class maintains:
+    * List of slides (each with triangles and metadata)
+    * List of transitions (each with source, target, and pairings)
+*   Methods for adding slides, creating transitions, and serialization
+*   Support for both manual transition creation and automatic patterns
+*   Each transition contains pairings that map source triangles to target triangles
+
+**Hungarian Algorithm Implementation:**
+
+*   Implemented in `transition.py` module
+*   Calculates cost matrix based on triangle centroid distances
+*   Ensures triangles are matched optimally based on spatial positioning
+*   Handles triangle sets of different sizes
+*   Supports limiting the number of triangles for memory efficiency
+*   Automatically transposes the problem if the target set is smaller than the source
+
+**Testing Framework:**
+
+*   Comprehensive unit tests for all core functionality
+*   End-to-end tests that verify the entire process flow
+*   Test fixtures with sample triangle data for consistent testing
+*   Mocking of external dependencies (triangler) for reliable test execution
+
 ## Frontend (`frontend/` React App)
 
 **Architecture:**
 
 *   **Framework:** React with TypeScript.
 *   **Build Tool:** Vite.
-*   **Rendering:** Three.js via `@react-three/fiber` (declarative scene definition) and `@react-three/drei` (helpers like `OrbitControls`).
+*   **Rendering:** SVG for 2D rendering of triangles.
+*   **Animation:** GSAP for performant, timeline-based animations.
 *   **State Management:** React `useState` and `useEffect` for data loading and basic state.
-*   **Component Structure:** `App.tsx` serves as the main component, containing scene setup, data fetching, and rendering logic. A `TriangleMesh` component encapsulates the rendering of a single triangle.
+*   **UI Controls:** Leva for interactive parameter adjustment.
+
+**Rendering Approach:**
+
+*   SVG-based rendering using React's SVG elements (`<svg>`, `<g>`, `<polygon>`).
+*   Each triangle is rendered as a separate `<polygon>` element with points derived from the JSON data.
+*   Colors converted from numeric format to CSS color strings.
+*   SVG viewBox and transforms used for proper positioning and scaling.
+
+**Animation System:**
+
+*   GSAP used for creating smooth, performant animations.
+*   References to animation tweens stored in React refs for proper cleanup.
+*   Random target positions and rotations calculated for each triangle.
+*   Animation parameters (duration, distance) controlled via Leva UI.
+*   Group transformations (position, scale, rotation) animated with GSAP.
 
 **Data Flow:**
 
-1.  `App.tsx` fetches `data.json` from the `/public` directory using `fetch` within a `useEffect` hook.
-2.  Fetched triangle data is stored in React state (`triangles`).
-3.  The component maps over the `triangles` state array, rendering a `TriangleMesh` component for each triangle.
-4.  `TriangleMesh` creates `BufferGeometry` and `MeshBasicMaterial` based on the passed triangle data.
+1.  Frontend first loads `combined_data.json` as the default transition
+2.  It then fetches the list of available transitions from the `/transitions` endpoint
+3.  User can select different transitions through the UI
+4.  Selected transition data is fetched and used to render triangles
+5.  Animations are applied to triangles based on UI control settings
+
+**Transition Handling:**
+
+*   Transitions represented as JSON files containing triangles_a, triangles_b, and pairings arrays
+*   Triangle data includes coordinates and colors 
+*   Pairings map triangles between sets based on the Hungarian algorithm results
+*   Animation system uses these pairings to create smooth transitions
 
 **Debugging:**
 
-*   The `leva` library provides an on-screen debug UI for tweaking parameters (e.g., lighting, group transforms) in real-time.
-*   `useControls` hook is used to define and manage these debuggable parameters.
-
-**Interaction:**
-
-*   `OrbitControls` from `@react-three/drei` enables camera manipulation (orbit, zoom, pan).
+*   The `leva` library provides an on-screen debug UI for tweaking parameters in real-time.
+*   Separated control groups for animation, triangle group transformations, and display settings.
 
 ## Backend-Frontend Interaction
 
-*   Loose coupling via file system: The backend generates `data.json`, which the frontend consumes.
-*   The frontend assumes `data.json` is present in its `public` directory at build/run time. 
+*   Loose coupling via file system: The backend generates JSON data, which the frontend consumes.
+*   The frontend assumes JSON files are present in its `public` directory at build/run time.
+*   `process_images.sh` can automatically copy files to the frontend with the `--serve` option. 

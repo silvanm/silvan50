@@ -59,13 +59,6 @@ def main():
     )
 
     parser.add_argument(
-        "--all-transitions",
-        "-a",
-        action="store_true",
-        help="Create transitions between all pairs of slides (default: only consecutive)",
-    )
-
-    parser.add_argument(
         "--round-robin",
         "-r",
         action="store_true",
@@ -136,9 +129,10 @@ def main():
             max_triangles=args.max_triangles
         )
     else:
-        # Use standard transitions
+        # Use sequential transitions (default)
         transition_count = slideshow.auto_create_transitions(
-            max_triangles=args.max_triangles, sequential_only=not args.all_transitions
+            max_triangles=args.max_triangles,
+            sequential_only=True,  # Always use sequential mode
         )
 
     print(f"Created {transition_count} transitions")
