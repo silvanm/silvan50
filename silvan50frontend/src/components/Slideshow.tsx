@@ -28,7 +28,6 @@ export default function Slideshow() {
   // Get next slide index in a loop
   const getNextSlideIndex = (current: number) => {
     const nextIndex = (current + 1) % slideshowData.slides.length;
-    console.log(`Moving from slide ${current} to slide ${nextIndex}`);
     return nextIndex;
   };
 
@@ -41,31 +40,6 @@ export default function Slideshow() {
 
   // Log the data when component mounts to verify it's loaded
   useEffect(() => {
-    console.log('Slideshow mounted, data loaded:', {
-      slides: slideshowData.slides.length,
-      transitions: slideshowData.transitions.length
-    });
-    
-    // Log detailed info about each slide
-    slideshowData.slides.forEach((slide, index) => {
-      console.log(`Slide ${index} (${slide.name}):`, {
-        triangleCount: slide.triangles.length,
-        triangles: slide.triangles.map((t, i) => ({
-          index: i,
-          coordinates: t.coordinates,
-          color: t.color
-        }))
-      });
-    });
-    
-    // Log detailed info about transitions
-    slideshowData.transitions.forEach((transition, index) => {
-      console.log(`Transition ${index} (${transition.from} → ${transition.to}):`, {
-        pairingCount: transition.pairings.length,
-        pairings: transition.pairings
-      });
-    });
-
     // Initialize with first slide
     renderInitialTriangles();
     
@@ -83,8 +57,6 @@ export default function Slideshow() {
     
     const currentSlideIndex = currentSlideIndexRef.current;
     const currentSlide = slideshowData.slides[currentSlideIndex];
-    
-    console.log(`Rendering initial triangles for slide ${currentSlideIndex}: "${currentSlide.name}"`);
     
     // Clear any existing triangles
     const svg = svgRef.current;
@@ -127,7 +99,6 @@ export default function Slideshow() {
       
       // Animate
       if (transition) {
-        console.log(`Found transition for ${currentIdx} → ${nextIdx}:`, transition);
         animateTransition(
           transition, 
           slideshowData.slides[currentIdx], 
@@ -144,15 +115,11 @@ export default function Slideshow() {
         nextSlideIndexRef.current = newNextIdx;
         // Update slide name without re-rendering triangles
         updateSlideName(slideshowData.slides[nextIdx].name);
-        console.log(`Updated indices: current=${nextIdx}, next=${newNextIdx}`);
       }, TRANSITION_DURATION * 1000);
     }, (TRANSITION_DURATION + SLIDE_DISPLAY_DURATION) * 1000);
     
-    console.log(`Animation cycle set for ${TRANSITION_DURATION + SLIDE_DISPLAY_DURATION} seconds`);
-    
     // Cleanup on unmount
     return () => {
-      console.log('Clearing animation timer');
       clearInterval(animationTimer);
     };
   };
@@ -168,16 +135,10 @@ export default function Slideshow() {
       return;
     }
     
-    console.log(`Starting animation from "${fromSlide.name}" to "${toSlide.name}"`);
-    console.log(`Animation will take ${TRANSITION_DURATION} seconds`);
-    
     const svg = svgRef.current;
     
     // Create a GSAP timeline for the transition
-    const tl = gsap.timeline({
-      onStart: () => console.log('GSAP animation started'),
-      onComplete: () => console.log('GSAP animation completed'),
-    });
+    const tl = gsap.timeline({});
     
     transition.pairings.forEach((pairing: Pairing, idx: number) => {
       const toTriangle = toSlide.triangles[pairing.to_index];
@@ -189,28 +150,13 @@ export default function Slideshow() {
         return;
       }
       
-      const fromTriangle = fromSlide.triangles[pairing.from_index];
-      
       // Calculate target points for the triangle
-      const sourcePoints = fromTriangle.coordinates
-        .map((coord: [number, number]) => `${coord[0]},${coord[1]}`)
-        .join(' ');
-        
       const targetPoints = toTriangle.coordinates
         .map((coord: [number, number]) => `${coord[0]},${coord[1]}`)
         .join(' ');
       
       // Calculate colors
-      const sourceColor = rgbToString(fromTriangle.color, fromTriangle.opacity ?? 1);
       const targetColor = rgbToString(toTriangle.color, toTriangle.opacity ?? 1);
-      
-      console.log(`Pairing ${idx}: Triangle ${pairing.from_index} → ${pairing.to_index}`, {
-        sourcePoints,
-        targetPoints,
-        sourceColor,
-        targetColor,
-        distance: pairing.distance
-      });
       
       // Add to timeline
       tl.to(
@@ -220,9 +166,7 @@ export default function Slideshow() {
           fill: targetColor,
           duration: TRANSITION_DURATION,
           ease: "power2.inOut",
-          onStart: () => console.log(`Animation started for triangle ${pairing.from_index}`),
           onComplete: () => {
-            console.log(`Animation completed for triangle ${pairing.from_index}`);
             // Update triangle ID to match its new index in the next slide
             triangleElement.id = `triangle-${pairing.to_index}`;
           }
@@ -233,14 +177,36 @@ export default function Slideshow() {
   };
 
   return (
-    <div className="slideshow-container">
+    <div className="slideshow-container" style={{
+      width: '100vw',
+      height: '100vh',
+      overflow: 'hidden',
+      position: 'relative'
+    }}>
       <svg
         ref={svgRef}
         viewBox="0 0 1000 800"
-        preserveAspectRatio="xMidYMid meet"
+        preserveAspectRatio="xMidYMid slice"
         className="w-full h-full"
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover'
+        }}
       />
-      <div ref={slideNameRef} className="slide-name"></div>
+      <div 
+        ref={slideNameRef} 
+        className="slide-name"
+        style={{
+          position: 'absolute',
+          bottom: '2rem',
+          left: '2rem',
+          zIndex: 10
+        }}
+      ></div>
     </div>
   );
 } 
