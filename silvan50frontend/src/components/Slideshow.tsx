@@ -105,6 +105,7 @@ export default function Slideshow() {
       polygonElement.setAttribute("points", points);
       polygonElement.setAttribute("fill", color);
       polygonElement.dataset.index = index.toString();
+      polygonElement.id = `triangle-${index}`; // Add a unique ID to each triangle
       
       svg.appendChild(polygonElement);
     });
@@ -171,9 +172,6 @@ export default function Slideshow() {
     console.log(`Animation will take ${TRANSITION_DURATION} seconds`);
     
     const svg = svgRef.current;
-    const triangleElements = svg.querySelectorAll('.triangle');
-    
-    console.log(`Found ${triangleElements.length} triangle elements in the DOM`);
     
     // Create a GSAP timeline for the transition
     const tl = gsap.timeline({
@@ -183,7 +181,8 @@ export default function Slideshow() {
     
     transition.pairings.forEach((pairing: Pairing, idx: number) => {
       const toTriangle = toSlide.triangles[pairing.to_index];
-      const triangleElement = triangleElements[pairing.from_index];
+      // Select triangle by ID instead of by DOM order
+      const triangleElement = svg.querySelector(`#triangle-${pairing.from_index}`);
       
       if (!triangleElement) {
         console.warn(`Triangle element not found for pairing ${idx}:`, pairing);
@@ -222,7 +221,11 @@ export default function Slideshow() {
           duration: TRANSITION_DURATION,
           ease: "power2.inOut",
           onStart: () => console.log(`Animation started for triangle ${pairing.from_index}`),
-          onComplete: () => console.log(`Animation completed for triangle ${pairing.from_index}`)
+          onComplete: () => {
+            console.log(`Animation completed for triangle ${pairing.from_index}`);
+            // Update triangle ID to match its new index in the next slide
+            triangleElement.id = `triangle-${pairing.to_index}`;
+          }
         },
         0 // Start all animations at the same time
       );
