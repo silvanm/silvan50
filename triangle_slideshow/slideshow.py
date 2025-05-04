@@ -117,6 +117,120 @@ class Slideshow:
 
         return count
 
+    def standardize_triangle_counts(self):
+        """
+        Ensure all slides have the same number of triangles by adding dummy triangles.
+
+        Dummy triangles are added with opacity=0 to slides with fewer triangles
+        than the maximum count. Positions for dummy triangles are taken from adjacent slides.
+
+        Returns:
+            int: Number of dummy triangles added
+        """
+        if len(self.slides) < 2:
+            return 0
+
+        # Find the maximum number of triangles in any slide
+        max_triangle_count = max(len(slide["triangles"]) for slide in self.slides)
+
+        # Keep track of how many dummy triangles we add
+        total_added = 0
+
+        # Process each slide
+        for slide_idx, slide in enumerate(self.slides):
+            current_triangles = slide["triangles"]
+            triangles_needed = max_triangle_count - len(current_triangles)
+
+            if triangles_needed <= 0:
+                continue  # This slide already has enough triangles
+
+            # Add dummy triangles to this slide
+            for _ in range(triangles_needed):
+                # Create a dummy triangle by finding a position from an adjacent slide
+                dummy_triangle = self._create_dummy_triangle(
+                    slide_idx, len(current_triangles) + total_added
+                )
+                current_triangles.append(dummy_triangle)
+                total_added += 1
+
+        return total_added
+
+    def _create_dummy_triangle(self, slide_idx, triangle_idx):
+        """
+        Create a dummy triangle for a specific slide.
+
+        The position is copied from another slide, preferring adjacent slides.
+
+        Args:
+            slide_idx (int): Index of the slide needing a dummy triangle
+            triangle_idx (int): Index where the triangle will be placed
+
+        Returns:
+            dict: A dummy triangle with opacity=0
+        """
+        slides_count = len(self.slides)
+
+        # Find adjacent slide indices, with wraparound for first/last slides
+        prev_idx = (slide_idx - 1) % slides_count
+        next_idx = (slide_idx + 1) % slides_count
+
+        # First, try to directly copy from the same position in the next slide
+        next_triangles = self.slides[next_idx]["triangles"]
+        if triangle_idx < len(next_triangles):
+            src_triangle = next_triangles[triangle_idx]
+            return {
+                "coordinates": src_triangle["coordinates"].copy(),
+                "color": src_triangle["color"].copy(),
+                "opacity": 0.0,  # Make the dummy triangle invisible
+            }
+
+        # If not available in the next slide, try the previous slide
+        prev_triangles = self.slides[prev_idx]["triangles"]
+        if triangle_idx < len(prev_triangles):
+            src_triangle = prev_triangles[triangle_idx]
+            return {
+                "coordinates": src_triangle["coordinates"].copy(),
+                "color": src_triangle["color"].copy(),
+                "opacity": 0.0,
+            }
+
+        # If the exact position isn't available in adjacent slides,
+        # look for any slide that has this position
+        for offset in range(1, slides_count):
+            check_idx = (slide_idx + offset) % slides_count
+            check_triangles = self.slides[check_idx]["triangles"]
+
+            if triangle_idx < len(check_triangles):
+                src_triangle = check_triangles[triangle_idx]
+                return {
+                    "coordinates": src_triangle["coordinates"].copy(),
+                    "color": src_triangle["color"].copy(),
+                    "opacity": 0.0,
+                }
+
+        # If no slide has a triangle at this exact position,
+        # fall back to using the first available triangle from any slide
+        for idx in range(slides_count):
+            if idx == slide_idx:
+                continue  # Skip the current slide
+
+            check_triangles = self.slides[idx]["triangles"]
+            if check_triangles:
+                # Use the first triangle
+                src_triangle = check_triangles[0]
+                return {
+                    "coordinates": src_triangle["coordinates"].copy(),
+                    "color": src_triangle["color"].copy(),
+                    "opacity": 0.0,
+                }
+
+        # Last resort fallback: create a default triangle
+        return {
+            "coordinates": [[0, 0], [10, 0], [5, 10]],
+            "color": [0, 255, 0],  # Green color for dummy triangles
+            "opacity": 0.0,
+        }
+
     def to_dict(self):
         """
         Convert the slideshow to a dictionary for serialization.

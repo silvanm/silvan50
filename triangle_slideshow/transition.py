@@ -71,20 +71,34 @@ def create_transition(triangles_from, triangles_to, max_triangles=None):
     Returns:
         list: List of pairings (dictionaries with from_index, to_index, distance keys)
     """
+    # Include all triangles in the transition, regardless of opacity
+    source_triangles = triangles_from
+    target_triangles = triangles_to
+
+    # Create identity mapping for indices (no filtering)
+    source_index_map = list(range(len(source_triangles)))
+    target_index_map = list(range(len(target_triangles)))
+
     # Limit triangles if specified (for memory efficiency)
     if max_triangles:
-        source_triangles = triangles_from[:max_triangles]
-        target_triangles = triangles_to[:max_triangles]
-    else:
-        source_triangles = triangles_from
-        target_triangles = triangles_to
+        source_triangles = source_triangles[:max_triangles]
+        source_index_map = source_index_map[:max_triangles]
+        target_triangles = target_triangles[:max_triangles]
+        target_index_map = target_index_map[:max_triangles]
+
+    # If either set is empty, handle this case
+    if not source_triangles or not target_triangles:
+        print("Warning: No triangles found")
+        return []
 
     # Determine which set needs to be the rows (smaller set)
     if len(source_triangles) <= len(target_triangles):
         row_triangles, col_triangles = source_triangles, target_triangles
+        row_index_map, col_index_map = source_index_map, target_index_map
         is_source_rows = True
     else:
         row_triangles, col_triangles = target_triangles, source_triangles
+        row_index_map, col_index_map = target_index_map, source_index_map
         is_source_rows = False
 
     # Calculate cost matrix
@@ -104,8 +118,8 @@ def create_transition(triangles_from, triangles_to, max_triangles=None):
             # Source is rows, target is columns
             pairings.append(
                 {
-                    "from_index": int(row_idx),
-                    "to_index": int(col_idx),
+                    "from_index": int(source_index_map[row_idx]),
+                    "to_index": int(target_index_map[col_idx]),
                     "distance": float(cost_matrix[row_idx, col_idx]),
                 }
             )
@@ -113,8 +127,8 @@ def create_transition(triangles_from, triangles_to, max_triangles=None):
             # Target is rows, source is columns
             pairings.append(
                 {
-                    "from_index": int(col_idx),
-                    "to_index": int(row_idx),
+                    "from_index": int(source_index_map[col_idx]),
+                    "to_index": int(target_index_map[row_idx]),
                     "distance": float(cost_matrix[row_idx, col_idx]),
                 }
             )

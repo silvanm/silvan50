@@ -65,6 +65,14 @@ def main():
         help="Create round-robin transitions (last slide transitions back to first)",
     )
 
+    parser.add_argument(
+        "--square-size",
+        "-s",
+        type=int,
+        default=1080,
+        help="Size of the square crop for all images in pixels (default: 1080)",
+    )
+
     args = parser.parse_args()
 
     # Process input args
@@ -95,6 +103,7 @@ def main():
     print(f"Output slideshow: {output_file}")
     print(f"Using {args.points} points for triangulation")
     print(f"Max triangles for transitions: {args.max_triangles}")
+    print(f"Cropping images to {args.square_size}x{args.square_size} squares")
 
     # Process images to get triangles
     triangle_dict = process_images(
@@ -102,6 +111,7 @@ def main():
         output_dir=output_dir,
         num_points=args.points,
         extensions=extensions,
+        square_size=args.square_size,
     )
 
     if not triangle_dict:
@@ -118,6 +128,13 @@ def main():
         slideshow.add_slide(triangles, name=slide_name)
 
     print(f"Created slideshow with {len(slideshow.slides)} slides")
+
+    # Standardize triangle counts across all slides
+    dummy_count = slideshow.standardize_triangle_counts()
+    if dummy_count > 0:
+        print(
+            f"Added {dummy_count} dummy triangles to standardize slide triangle counts"
+        )
 
     # Create transitions
     print("Creating transitions between slides...")

@@ -1,0 +1,72 @@
+# Project Intelligence: Triangler & Transitions
+
+## Environment & Compatibility
+
+- The local directory named `triangler_dir` is distinct from the Python module named `triangler`.
+- The triangler module is required for image processing and is available in a local virtual environment.
+- The virtual environment in `triangler_dir/venv` contains all required dependencies for triangler.
+- Process scripts require Python 3.6+ with NumPy and SciPy installed.
+- The frontend requires EXACTLY Node.js v18 (not v20+) due to Vite compatibility issues.
+- Use `nvm use 18` to switch to the correct Node.js version before running the frontend.
+
+## Command Patterns
+
+### Image Processing
+
+- Process a single image with triangler:
+  ```bash
+  ./triangler_dir/venv/bin/python -m triangler /path/to/image.jpg -p 1000 -o output/image.json --format json
+  ```
+
+- Process a folder of images and create transitions:
+  ```bash
+  ./process_folder.py --input-dir images/ --output-dir output/ --points 1000 --create-transitions
+  ```
+
+- Process images directly to the frontend public directory:
+  ```bash
+  ./process_folder.py --input-dir images/ --output-dir frontend/public/ --points 1000 --create-transitions
+  ```
+
+- Process images and serve the frontend:
+  ```bash
+  ./process_images.sh --input images --output output --points 1000 --serve
+  ```
+
+### Frontend Server
+
+- Start the frontend development server (ensure correct Node.js version first):
+  ```bash
+  nvm use 18
+  cd frontend && npm run dev
+  ```
+
+### Transition Generation
+
+- The Hungarian algorithm is used for finding triangle pairings between images.
+- Transition generation has a memory limit, defaulting to 5000 triangles per image.
+- The first transition generated becomes the default `combined_data.json` file.
+- Transitions are stored in the `transitions/` subdirectory of the output directory.
+
+## File Structure
+
+- Individual triangle JSON files are stored in the output root directory.
+- Transition files use the naming pattern `{image1}_to_{image2}.json`.
+- The frontend expects `combined_data.json` as the default transition file.
+- For the frontend, files should be in `frontend/public/` and `frontend/public/transitions/`.
+
+## Performance Considerations
+
+- The Hungarian algorithm's O(n³) complexity makes it memory-intensive for large triangle sets.
+- Each transition file contains both sets of triangles plus the pairings between them.
+- The SVG frontend may struggle with extremely high triangle counts (thousands).
+- Creating transitions between all pairs of N images results in N*(N-1)/2 transition files.
+
+## Troubleshooting
+
+- If using the virtual environment doesn't work, make sure the path in `process_folder.py` is correct.
+- The virtual environment in `triangler_dir/venv` contains all required dependencies including `skimage`.
+- If no transitions are created, check that at least two images were successfully processed.
+- Frontend errors usually relate to missing or malformatted JSON files or paths.
+- If frontend transitions don't work, check for the existence of `combined_data.json`.
+- If frontend fails with `SyntaxError: Invalid regular expression flags`, ensure you're using Node.js v18 with `nvm use 18`. 

@@ -42,8 +42,24 @@
 1. Input images from a directory are processed by `triangle_slideshow.processor` module
 2. Triangle representations are generated for each image
 3. The `Slideshow` class from `slideshow.py` manages the collection of slides
-4. Transitions between slides are created using the Hungarian algorithm from `transition.py`
-5. The complete slideshow with transitions is serialized to JSON format
+4. Triangle standardization ensures all slides have the same number of triangles
+5. Transitions between slides are created using the Hungarian algorithm from `transition.py`
+6. The complete slideshow with transitions is serialized to JSON format
+
+**Triangle Standardization:**
+
+* Implemented in the `standardize_triangle_counts` method of the `Slideshow` class
+* Finds the maximum triangle count across all slides
+* Adds "dummy triangles" with opacity=0 to slides with fewer triangles
+* Copies positions for dummy triangles from adjacent slides
+* Ensures all slides have the same number of triangles for consistent transitions
+* Preserves original triangles with opacity=1
+* Follows a hierarchical approach to find suitable positions for dummy triangles:
+  1. Try positions from the same index in next slide
+  2. Try positions from the same index in previous slide
+  3. Try positions from the same index in any slide
+  4. Use a position from the first triangle of any slide
+  5. Fallback to a default position if all else fails
 
 **Triangle Transitions:**
 
@@ -62,6 +78,7 @@
 *   Methods for adding slides, creating transitions, and serialization
 *   Support for both manual transition creation and automatic patterns
 *   Each transition contains pairings that map source triangles to target triangles
+*   Triangles may include opacity value (1.0 for normal, 0.0 for dummy triangles)
 
 **Hungarian Algorithm Implementation:**
 
@@ -78,55 +95,39 @@
 *   End-to-end tests that verify the entire process flow
 *   Test fixtures with sample triangle data for consistent testing
 *   Mocking of external dependencies (triangler) for reliable test execution
+*   Specific tests for triangle standardization and round-robin transitions
 
-## Frontend (`frontend/` React App)
+## Frontend Visualization
 
-**Architecture:**
+> **Note:** The previous frontend implementation has been deleted and will be rebuilt from scratch.
 
-*   **Framework:** React with TypeScript.
-*   **Build Tool:** Vite.
-*   **Rendering:** SVG for 2D rendering of triangles.
-*   **Animation:** GSAP for performant, timeline-based animations.
-*   **State Management:** React `useState` and `useEffect` for data loading and basic state.
-*   **UI Controls:** Leva for interactive parameter adjustment.
+**Planned Architecture:**
 
-**Rendering Approach:**
+*   **Framework:** React with TypeScript
+*   **Rendering:** SVG or Canvas for 2D rendering of triangles
+*   **Animation:** GSAP or similar for smooth animations
+*   **State Management:** React state hooks for data loading and state
+*   **UI Controls:** Interactive parameter adjustment
 
-*   SVG-based rendering using React's SVG elements (`<svg>`, `<g>`, `<polygon>`).
-*   Each triangle is rendered as a separate `<polygon>` element with points derived from the JSON data.
-*   Colors converted from numeric format to CSS color strings.
-*   SVG viewBox and transforms used for proper positioning and scaling.
+**Required Features:**
 
-**Animation System:**
+*   Loading JSON data from triangle slideshow files
+*   Rendering triangles with proper color, position, and opacity
+*   Handling dummy triangles (opacity=0) correctly
+*   Supporting transitions between slide pairs
+*   Providing user controls for selecting transitions
+*   Supporting both sequential and round-robin transition models
 
-*   GSAP used for creating smooth, performant animations.
-*   References to animation tweens stored in React refs for proper cleanup.
-*   Random target positions and rotations calculated for each triangle.
-*   Animation parameters (duration, distance) controlled via Leva UI.
-*   Group transformations (position, scale, rotation) animated with GSAP.
+**Data Model Integration:**
 
-**Data Flow:**
-
-1.  Frontend first loads `combined_data.json` as the default transition
-2.  It then fetches the list of available transitions from the `/transitions` endpoint
-3.  User can select different transitions through the UI
-4.  Selected transition data is fetched and used to render triangles
-5.  Animations are applied to triangles based on UI control settings
-
-**Transition Handling:**
-
-*   Transitions represented as JSON files containing triangles_a, triangles_b, and pairings arrays
-*   Triangle data includes coordinates and colors 
-*   Pairings map triangles between sets based on the Hungarian algorithm results
-*   Animation system uses these pairings to create smooth transitions
-
-**Debugging:**
-
-*   The `leva` library provides an on-screen debug UI for tweaking parameters in real-time.
-*   Separated control groups for animation, triangle group transformations, and display settings.
+*   Frontend will need to parse and understand:
+    * Slideshow JSON format with slides and transitions
+    * Triangle data with coordinates, color, and opacity
+    * Transition pairings between triangle sets
+*   Must correctly handle dummy triangles with opacity=0
 
 ## Backend-Frontend Interaction
 
 *   Loose coupling via file system: The backend generates JSON data, which the frontend consumes.
-*   The frontend assumes JSON files are present in its `public` directory at build/run time.
-*   `process_images.sh` can automatically copy files to the frontend with the `--serve` option. 
+*   The frontend will load slideshow JSON files from a designated location.
+*   The standardized triangle counts will ensure consistent transitions in the new frontend. 

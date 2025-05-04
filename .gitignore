@@ -1,1 +1,6 @@
 .history
+silvan50frontend/.pytest_cache
+test_output
+**/__pycache__
+images/
+.DS_Store

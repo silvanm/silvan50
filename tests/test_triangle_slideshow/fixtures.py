@@ -24,6 +24,30 @@ TRIANGLES_SET_B = [
     {"coordinates": [[45, 5], [55, 5], [50, 15]], "color": [255, 0, 255]},
 ]
 
+# Third set of triangles for testing round-robin transitions
+TRIANGLES_SET_C = [
+    {"coordinates": [[10, 10], [20, 10], [15, 20]], "color": [128, 0, 0]},
+    {"coordinates": [[30, 10], [40, 10], [35, 20]], "color": [0, 128, 0]},
+    {"coordinates": [[50, 10], [60, 10], [55, 20]], "color": [0, 0, 128]},
+]
+
+# Uneven triangle sets for testing standardization
+TRIANGLES_SET_SMALL = [
+    {"coordinates": [[0, 0], [10, 0], [5, 10]], "color": [255, 0, 0]},
+]
+
+TRIANGLES_SET_MEDIUM = [
+    {"coordinates": [[0, 0], [10, 0], [5, 10]], "color": [255, 0, 0]},
+    {"coordinates": [[20, 0], [30, 0], [25, 10]], "color": [0, 255, 0]},
+]
+
+TRIANGLES_SET_LARGE = [
+    {"coordinates": [[0, 0], [10, 0], [5, 10]], "color": [255, 0, 0]},
+    {"coordinates": [[20, 0], [30, 0], [25, 10]], "color": [0, 255, 0]},
+    {"coordinates": [[40, 0], [50, 0], [45, 10]], "color": [0, 0, 255]},
+    {"coordinates": [[60, 0], [70, 0], [65, 10]], "color": [255, 255, 0]},
+]
+
 # Expected cost matrix for TRIANGLES_SET_A and TRIANGLES_SET_B
 # The Euclidean distance between the centroids
 EXPECTED_COST_MATRIX = [
