@@ -171,3 +171,10 @@ The package is organized in a modular way:
 ## License
 
 MIT 
+
+
+
+Next steps:
+ - different aspect ratios for mobile and desktop
+ - add text
+ - 

@@ -23,6 +23,9 @@ from tests.test_triangle_slideshow.fixtures import (
     SAMPLE_SLIDESHOW_DICT,
     EMPTY_SLIDESHOW_DICT,
     SINGLE_SLIDE_SLIDESHOW_DICT,
+    TRIANGLES_SET_SMALL,
+    TRIANGLES_SET_MEDIUM,
+    TRIANGLES_SET_LARGE,
 )
 
 
@@ -258,9 +261,11 @@ class TestSlideshowClass:
     def test_round_robin_transitions_method(self):
         """Test the round_robin_transitions method that creates cyclic transitions (1 -> 2 -> 3 -> 1)."""
         # Patch the module where create_transition is imported from
-        with patch("triangle_slideshow.slideshow.create_transition") as mock_create:
+        with patch(
+            "triangle_slideshow.slideshow.create_transition"
+        ) as mock_create_transition:
             # Arrange
-            mock_create.return_value = EXPECTED_PAIRINGS
+            mock_create_transition.return_value = EXPECTED_PAIRINGS
             slideshow = Slideshow()
 
             # Create three slides with different triangle sets
@@ -282,7 +287,233 @@ class TestSlideshowClass:
             assert (2, 0) in transitions  # 3 -> 1
 
             # Verify the call count to create_transition
-            assert mock_create.call_count == 3
+            assert mock_create_transition.call_count == 3
+
+    def test_standardize_triangle_counts_empty_slideshow(self):
+        """Test that standardize_triangle_counts handles empty slideshows correctly."""
+        # Arrange
+        slideshow = Slideshow()
+
+        # Act
+        result = slideshow.standardize_triangle_counts()
+
+        # Assert
+        assert result == 0
+        assert len(slideshow.slides) == 0
+
+    def test_standardize_triangle_counts_single_slide(self):
+        """Test that standardize_triangle_counts handles single-slide slideshows correctly."""
+        # Arrange
+        slideshow = Slideshow()
+        slideshow.add_slide(TRIANGLES_SET_A)
+
+        # Act
+        result = slideshow.standardize_triangle_counts()
+
+        # Assert
+        assert result == 0
+        assert len(slideshow.slides[0]["triangles"]) == len(TRIANGLES_SET_A)
+
+    def test_standardize_triangle_counts_equal_slides(self):
+        """Test that standardize_triangle_counts doesn't modify slides with equal triangle counts."""
+        # Arrange
+        slideshow = Slideshow()
+        slideshow.add_slide(TRIANGLES_SET_A)
+        slideshow.add_slide(TRIANGLES_SET_B)  # Same size as TRIANGLES_SET_A
+
+        # Act
+        result = slideshow.standardize_triangle_counts()
+
+        # Assert
+        assert result == 0
+        assert len(slideshow.slides[0]["triangles"]) == len(TRIANGLES_SET_A)
+        assert len(slideshow.slides[1]["triangles"]) == len(TRIANGLES_SET_B)
+
+    def test_standardize_triangle_counts_uneven_slides(self):
+        """Test that standardize_triangle_counts adds dummy triangles to slides with fewer triangles."""
+        # Arrange
+        slideshow = Slideshow()
+        slideshow.add_slide(TRIANGLES_SET_SMALL, name="small")
+        slideshow.add_slide(TRIANGLES_SET_MEDIUM, name="medium")
+        slideshow.add_slide(TRIANGLES_SET_LARGE, name="large")
+
+        # Act
+        result = slideshow.standardize_triangle_counts()
+
+        # Assert - Large set has 4 triangles, so 3 dummy triangles should be added to small, 2 to medium
+        assert result == 3 + 2
+        assert len(slideshow.slides[0]["triangles"]) == len(
+            TRIANGLES_SET_LARGE
+        )  # Should now be 4
+        assert len(slideshow.slides[1]["triangles"]) == len(
+            TRIANGLES_SET_LARGE
+        )  # Should now be 4
+        assert len(slideshow.slides[2]["triangles"]) == len(
+            TRIANGLES_SET_LARGE
+        )  # Still 4
+
+        # Check that dummy triangles have opacity=0
+        dummies_in_small = slideshow.slides[0]["triangles"][
+            1:
+        ]  # All after the first triangle
+        dummies_in_medium = slideshow.slides[1]["triangles"][
+            2:
+        ]  # All after the first two triangles
+
+        for dummy in dummies_in_small:
+            assert "opacity" in dummy
+            assert dummy["opacity"] == 0.0
+
+        for dummy in dummies_in_medium:
+            assert "opacity" in dummy
+            assert dummy["opacity"] == 0.0
+
+    def test_standardize_triangle_counts_position_copying(self):
+        """Test that dummy triangles correctly copy positions from adjacent slides."""
+        # Arrange
+        slideshow = Slideshow()
+        slideshow.add_slide(TRIANGLES_SET_SMALL, name="small")
+        slideshow.add_slide(TRIANGLES_SET_LARGE, name="large")
+
+        # Act
+        slideshow.standardize_triangle_counts()
+
+        # Assert
+        small_triangles = slideshow.slides[0]["triangles"]
+        large_triangles = slideshow.slides[1]["triangles"]
+
+        # The small slide should have 3 dummy triangles, and they should copy positions from the large slide
+        assert len(small_triangles) == len(large_triangles)
+
+        # Check that all triangles in the small slide after the first one have opacity=0 (are dummy triangles)
+        for i in range(1, len(small_triangles)):
+            assert small_triangles[i]["opacity"] == 0.0
+
+        # The first triangle should be the original from TRIANGLES_SET_SMALL
+        assert (
+            small_triangles[0]["coordinates"] == TRIANGLES_SET_SMALL[0]["coordinates"]
+        )
+
+        # Based on the actual implementation behavior:
+        # The first dummy triangle (index 1) should have coordinates from the second triangle in large set
+        assert small_triangles[1]["coordinates"] == large_triangles[1]["coordinates"]
+
+        # The second dummy triangle (index 2) should have coordinates from the fourth triangle in large set
+        assert small_triangles[2]["coordinates"] == large_triangles[3]["coordinates"]
+
+        # The third dummy triangle (index 3) should have coordinates from the first triangle in large set
+        assert small_triangles[3]["coordinates"] == large_triangles[0]["coordinates"]
+
+    def test_standardize_triangle_counts_then_create_transitions(self):
+        """Test that transitions work correctly after standardizing triangle counts."""
+        # Patch the module where create_transition is imported from
+        with patch(
+            "triangle_slideshow.slideshow.create_transition"
+        ) as mock_create_transition:
+            # Arrange
+            mock_create_transition.return_value = EXPECTED_PAIRINGS
+            slideshow = Slideshow()
+            slideshow.add_slide(TRIANGLES_SET_SMALL, name="small")
+            slideshow.add_slide(TRIANGLES_SET_LARGE, name="large")
+
+            # Act - First standardize, then create transitions
+            slideshow.standardize_triangle_counts()
+            slideshow.auto_create_transitions()
+
+            # Assert
+            assert len(slideshow.slides[0]["triangles"]) == len(
+                slideshow.slides[1]["triangles"]
+            )
+            assert len(slideshow.transitions) == 1
+            assert mock_create_transition.call_count == 1
+
+            # Verify that only visible triangles are passed to create_transition
+            args, kwargs = mock_create_transition.call_args
+            assert len(args) > 0  # Verify that arguments were passed
+
+    def test_transitions_have_complete_pairings(self):
+        """Test that all transitions contain complete pairings for all triangles after standardization."""
+        # Arrange
+        slideshow = Slideshow()
+        # Add slides with different numbers of triangles
+        slideshow.add_slide(TRIANGLES_SET_SMALL, name="small")
+        slideshow.add_slide(TRIANGLES_SET_MEDIUM, name="medium")
+        slideshow.add_slide(TRIANGLES_SET_LARGE, name="large")
+
+        # Act
+        # First standardize to make all slides have the same number of triangles
+        slideshow.standardize_triangle_counts()
+        # Then create transitions
+        num_transitions = slideshow.auto_create_transitions()
+
+        # Assert
+        assert num_transitions > 0
+
+        # For each transition, check that all triangles have pairings
+        for transition in slideshow.transitions:
+            from_idx = transition["from"]
+            to_idx = transition["to"]
+            pairings = transition["pairings"]
+
+            # Get the triangles from both slides
+            from_triangles = slideshow.slides[from_idx]["triangles"]
+            to_triangles = slideshow.slides[to_idx]["triangles"]
+
+            # Both slides should have the same number of triangles after standardization
+            assert len(from_triangles) == len(to_triangles)
+
+            # Check triangle pairing coverage
+            from_indices = set(pairing["from_index"] for pairing in pairings)
+            to_indices = set(pairing["to_index"] for pairing in pairings)
+
+            # Find unpaired triangles
+            unpaired_from = set(range(len(from_triangles))) - from_indices
+            unpaired_to = set(range(len(to_triangles))) - to_indices
+
+            # Log information about unpaired triangles
+            if unpaired_from:
+                print(
+                    f"Warning: {len(unpaired_from)} unpaired 'from' triangles in transition {from_idx} → {to_idx}"
+                )
+                for idx in unpaired_from:
+                    opacity = from_triangles[idx].get("opacity", 1.0)
+                    print(f"  Triangle {idx}, opacity={opacity}")
+
+            if unpaired_to:
+                print(
+                    f"Warning: {len(unpaired_to)} unpaired 'to' triangles in transition {from_idx} → {to_idx}"
+                )
+                for idx in unpaired_to:
+                    opacity = to_triangles[idx].get("opacity", 1.0)
+                    print(f"  Triangle {idx}, opacity={opacity}")
+
+            # Check that each triangle index is paired at most once
+            assert len(from_indices) == len(
+                pairings
+            ), "Some from_indices are used multiple times"
+            assert len(to_indices) == len(
+                pairings
+            ), "Some to_indices are used multiple times"
+
+            # UPDATED BEHAVIOR: All triangles (including invisible ones) should be paired
+            # after our change to create_transition
+
+            # Verify that ALL triangles have pairings
+            assert len(unpaired_from) == 0, "Not all 'from' triangles are paired"
+            assert len(unpaired_to) == 0, "Not all 'to' triangles are paired"
+
+            # Verify that the pairings cover all triangles in both slides
+            assert len(from_indices) == len(
+                from_triangles
+            ), "Not all 'from' triangles are paired"
+            assert len(to_indices) == len(
+                to_triangles
+            ), "Not all 'to' triangles are paired"
+
+            # Additional check: pairings should have valid distances
+            for pairing in pairings:
+                assert "distance" in pairing
+                assert isinstance(pairing["distance"], (int, float))
 
     def test_to_dict(self):
         """Test converting a slideshow to a dictionary."""

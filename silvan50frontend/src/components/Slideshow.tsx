@@ -10,8 +10,9 @@ import {
   Pairing 
 } from '../utils/slideshow-data';
 
-const TRANSITION_DURATION = 2; // seconds
-const SLIDE_DISPLAY_DURATION = 1; // seconds to display each slide before transitioning
+const TRANSITION_DURATION = 5; // seconds
+const SLIDE_DISPLAY_DURATION = 7; // seconds to display each slide before transitioning
+const MAX_TRIANGLE_DELAY = 4 ; // maximum delay in seconds for triangle animations based on position
 
 export default function Slideshow() {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -46,6 +47,7 @@ export default function Slideshow() {
     // Set up non-reactive animation cycle
     setupAnimationCycle();
     
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Render initial triangles once
@@ -140,6 +142,14 @@ export default function Slideshow() {
     // Create a GSAP timeline for the transition
     const tl = gsap.timeline({});
     
+    // Find the maximum y-coordinate in the entire slide for normalization
+    let maxY = 0;
+    fromSlide.triangles.forEach(triangle => {
+      triangle.coordinates.forEach(coord => {
+        if (coord[1] > maxY) maxY = coord[1];
+      });
+    });
+    
     transition.pairings.forEach((pairing: Pairing, idx: number) => {
       const toTriangle = toSlide.triangles[pairing.to_index];
       // Select triangle by ID instead of by DOM order
@@ -150,29 +160,64 @@ export default function Slideshow() {
         return;
       }
       
+      // Check if the destination triangle has opacity 0
+      const toOpacity = toTriangle.opacity ?? 1;
+      
       // Calculate target points for the triangle
       const targetPoints = toTriangle.coordinates
         .map((coord: [number, number]) => `${coord[0]},${coord[1]}`)
         .join(' ');
       
       // Calculate colors
-      const targetColor = rgbToString(toTriangle.color, toTriangle.opacity ?? 1);
+      const targetColor = rgbToString(toTriangle.color, toOpacity);
       
-      // Add to timeline
-      tl.to(
-        triangleElement,
-        {
-          attr: { points: targetPoints },
-          fill: targetColor,
-          duration: TRANSITION_DURATION,
-          ease: "power2.inOut",
-          onComplete: () => {
-            // Update triangle ID to match its new index in the next slide
-            triangleElement.id = `triangle-${pairing.to_index}`;
-          }
-        },
-        0 // Start all animations at the same time
-      );
+      // Calculate delay based on vertical position
+      // Get the source triangle data to calculate position
+      const sourceTriangle = fromSlide.triangles[pairing.from_index];
+      
+      // Calculate average y-coordinate of the triangle
+      const avgY = sourceTriangle.coordinates.reduce((sum, coord) => sum + coord[1], 0) / 
+                  sourceTriangle.coordinates.length;
+      
+      // Normalize the position to get a delay between 0 and MAX_TRIANGLE_DELAY seconds
+      // The higher the y value, the later the animation starts
+      const delay = (avgY / maxY) * MAX_TRIANGLE_DELAY;
+      
+      // Add to timeline - handle triangles with opacity 0 differently
+      if (toOpacity === 0) {
+        // For triangles that should become invisible, only transition the opacity
+        tl.to(
+          triangleElement,
+          {
+            fill: targetColor, // This includes the opacity change
+            duration: TRANSITION_DURATION,
+            ease: "power2.inOut",
+            delay: delay,
+            onComplete: () => {
+              // Update triangle ID to match its new index in the next slide
+              triangleElement.id = `triangle-${pairing.to_index}`;
+            }
+          },
+          0 // Start all animations at the same time
+        );
+      } else {
+        // For normal triangles, animate both position and color
+        tl.to(
+          triangleElement,
+          {
+            attr: { points: targetPoints },
+            fill: targetColor,
+            duration: TRANSITION_DURATION,
+            ease: "power2.inOut",
+            delay: delay,
+            onComplete: () => {
+              // Update triangle ID to match its new index in the next slide
+              triangleElement.id = `triangle-${pairing.to_index}`;
+            }
+          },
+          0 // Start all animations at the same time
+        );
+      }
     });
   };
 
@@ -181,7 +226,8 @@ export default function Slideshow() {
       width: '100vw',
       height: '100vh',
       overflow: 'hidden',
-      position: 'relative'
+      position: 'relative',
+      backgroundColor: 'black'
     }}>
       <svg
         ref={svgRef}
@@ -204,7 +250,7 @@ export default function Slideshow() {
           position: 'absolute',
           bottom: '2rem',
           left: '2rem',
-          zIndex: 10
+          zIndex: 10,
         }}
       ></div>
     </div>

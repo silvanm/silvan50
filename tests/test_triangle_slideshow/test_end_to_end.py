@@ -67,9 +67,9 @@ class TestEndToEnd:
                     with open(image_path, "w") as f:
                         f.write("fake image data")
 
-                    # Process the image
+                    # Process the image in test mode
                     triangles = process_image(
-                        image_path, output_paths[i], num_points=1000
+                        image_path, output_paths[i], num_points=1000, testing=True
                     )
                     processed_triangles.append(triangles)
 
@@ -151,7 +151,7 @@ class TestEndToEnd:
                 image_path = os.path.join(temp_dir, "invalid_image.jpg")
 
                 # Attempt to process the image, should handle the exception
-                result = process_image(image_path, num_points=1000)
+                result = process_image(image_path, num_points=1000, testing=True)
 
                 # Verify we got None as the result due to error handling
                 assert result is None
@@ -195,8 +195,10 @@ class TestEndToEnd:
                 # Assign our implementation
                 mock_triangler.convert.side_effect = mock_convert
 
-                # Process all images in the directory
-                results = process_images(input_dir, output_dir, num_points=1000)
+                # Process all images in the directory in test mode
+                results = process_images(
+                    input_dir, output_dir, num_points=1000, testing=True
+                )
 
                 # Verify we got the expected results
                 assert len(results) == 3

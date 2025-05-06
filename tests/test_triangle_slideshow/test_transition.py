@@ -161,6 +161,38 @@ class TestCreateTransition:
         assert len(args[0]) == 1  # First arg should be triangles_b (smaller)
         assert len(args[1]) == 3  # Second arg should be triangles_a (larger)
 
+    def test_complete_pairings(self):
+        """Test that create_transition creates a complete pairing for all triangles."""
+        # Arrange - Create two sets of triangles with the same number of triangles
+        triangles_a = TRIANGLES_SET_A.copy()
+        triangles_b = TRIANGLES_SET_B.copy()
+
+        # Act - Create the transition
+        pairings = create_transition(triangles_a, triangles_b)
+
+        # Assert - Check that all triangles are included in the pairings
+        assert len(pairings) == len(triangles_a)
+
+        # Check that every triangle in set A is paired
+        from_indices = set(pairing["from_index"] for pairing in pairings)
+        assert from_indices == set(range(len(triangles_a)))
+
+        # Check that every triangle in set B is paired
+        to_indices = set(pairing["to_index"] for pairing in pairings)
+        assert to_indices == set(range(len(triangles_b)))
+
+        # Check that each from_index maps to exactly one to_index
+        from_to_map = {
+            pairing["from_index"]: pairing["to_index"] for pairing in pairings
+        }
+        assert len(from_to_map) == len(triangles_a)
+
+        # Additional check for consistency - each pairing should have a valid distance
+        for pairing in pairings:
+            assert "distance" in pairing
+            assert isinstance(pairing["distance"], (int, float))
+            assert pairing["distance"] >= 0
+
 
 # Test with property-based testing (with larger random sets)
 class TestScalingBehavior:

@@ -81,6 +81,18 @@ def process_image(
                 # Load the image
                 image = imread(str(image_path))
 
+                # Rotate image 90° counterclockwise
+                # (Equivalent to np.rot90(image, k=1))
+                image = np.transpose(
+                    image, axes=(1, 0, 2) if image.ndim == 3 else (1, 0)
+                )
+                if image.ndim == 3:  # Color image
+                    image = image[::-1, :, :]
+                else:  # Grayscale image
+                    image = image[::-1, :]
+
+                print(f"Rotated image 90° counterclockwise")
+
                 # Crop to square
                 square_image = crop_to_square(image)
 
