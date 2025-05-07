@@ -240,6 +240,70 @@ class Slideshow:
         """
         return {"slides": self.slides, "transitions": self.transitions}
 
+    def export_individual_slides(self, output_dir):
+        """
+        Export each slide and its associated transitions as separate files.
+
+        This creates:
+        1. A manifest file with slide names and total count
+        2. Individual files for each slide with its triangle data
+        3. Transition files for each pair of slides
+
+        Args:
+            output_dir (str): Directory where files will be saved
+
+        Returns:
+            str: Path to the manifest file
+        """
+        output_dir = Path(output_dir)
+        os.makedirs(output_dir, exist_ok=True)
+
+        # Create a manifest file with metadata
+        manifest = {"total_slides": len(self.slides), "slides": []}
+
+        # Export each slide as a separate file
+        for i, slide in enumerate(self.slides):
+            slide_filename = f"slide_{i}.json"
+            slide_path = output_dir / slide_filename
+
+            # Find transitions where this slide is the source
+            outgoing_transitions = []
+            for transition in self.transitions:
+                if transition["from"] == i:
+                    target = transition["to"]
+                    transition_filename = f"transition_{i}_to_{target}.json"
+
+                    # Save the transition to a separate file
+                    transition_path = output_dir / transition_filename
+                    with open(transition_path, "w") as f:
+                        json.dump(transition, f)
+
+                    outgoing_transitions.append(
+                        {"to": target, "filename": transition_filename}
+                    )
+
+            # Save slide info to the manifest
+            manifest["slides"].append(
+                {
+                    "index": i,
+                    "name": slide["name"],
+                    "filename": slide_filename,
+                    "transitions": outgoing_transitions,
+                }
+            )
+
+            # Save the slide data
+            with open(slide_path, "w") as f:
+                json.dump(slide, f)
+
+        # Save the manifest
+        manifest_path = output_dir / "manifest.json"
+        with open(manifest_path, "w") as f:
+            json.dump(manifest, f, indent=2)
+
+        print(f"Exported {len(self.slides)} slides to {output_dir}")
+        return str(manifest_path)
+
     @classmethod
     def from_dict(cls, data):
         """
@@ -278,6 +342,20 @@ def save_slideshow(slideshow, output_path):
 
     print(f"Slideshow saved to {output_path}")
     return str(output_path)
+
+
+def save_slideshow_split(slideshow, output_dir):
+    """
+    Save a slideshow as individual files for each slide and transition.
+
+    Args:
+        slideshow (Slideshow): The slideshow to save
+        output_dir (str): Directory where files will be saved
+
+    Returns:
+        str: Path to the manifest file
+    """
+    return slideshow.export_individual_slides(output_dir)
 
 
 def load_slideshow(input_path):

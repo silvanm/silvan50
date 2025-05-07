@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 from triangle_slideshow.processor import process_images
-from triangle_slideshow.slideshow import Slideshow, save_slideshow
+from triangle_slideshow.slideshow import Slideshow, save_slideshow, save_slideshow_split
 
 
 def main():
@@ -62,7 +62,7 @@ def main():
         "--round-robin",
         "-r",
         action="store_true",
-        help="Create round-robin transitions (last slide transitions back to first)",
+        help="Create round-robin transitions (last slide transitions back to first) and automatically split slideshow into individual files",
     )
 
     parser.add_argument(
@@ -71,6 +71,12 @@ def main():
         type=int,
         default=1080,
         help="Size of the square crop for all images in pixels (default: 1080)",
+    )
+
+    parser.add_argument(
+        "--split",
+        action="store_true",
+        help="Split slideshow into individual files for improved loading",
     )
 
     args = parser.parse_args()
@@ -104,6 +110,8 @@ def main():
     print(f"Using {args.points} points for triangulation")
     print(f"Max triangles for transitions: {args.max_triangles}")
     print(f"Cropping images to {args.square_size}x{args.square_size} squares")
+    if args.split or args.round_robin:
+        print("Will split slideshow into individual files")
 
     # Process images to get triangles
     triangle_dict = process_images(
@@ -155,10 +163,25 @@ def main():
     print(f"Created {transition_count} transitions")
 
     # Save slideshow
-    save_slideshow(slideshow, output_file)
+    if args.split or args.round_robin:
+        # If the -r/--round-robin flag is used, always save split files
+        # Get the directory of the output file to use as the split directory
+        split_dir = output_file.parent
+        manifest_path = save_slideshow_split(slideshow, split_dir)
 
-    print("\nSlideshow creation complete!")
-    print(f"Output file: {output_file}")
+        # Also save the complete file for backward compatibility
+        save_slideshow(slideshow, output_file)
+
+        print("\nSlideshow creation complete!")
+        print(f"Split files saved to: {split_dir}")
+        print(f"Manifest file: {manifest_path}")
+        print(f"Complete slideshow: {output_file}")
+    else:
+        # Save as a single file
+        save_slideshow(slideshow, output_file)
+
+        print("\nSlideshow creation complete!")
+        print(f"Output file: {output_file}")
 
     return 0
 
