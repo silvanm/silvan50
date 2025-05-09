@@ -5,3 +5,4 @@ test_output
 images/
 .DS_Store
 **/.pytest_cache
+silvan50frontend/public/data

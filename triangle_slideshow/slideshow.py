@@ -18,19 +18,36 @@ class Slideshow:
         self.slides = []
         self.transitions = []
 
-    def add_slide(self, triangles, name=None):
+    def add_slide(self, triangles_data, name=None):
         """
         Add a slide to the slideshow.
 
         Args:
-            triangles (list): List of triangles for the slide
+            triangles_data (dict/list): List of triangles or dict with triangles and dominant_colors
             name (str, optional): Name for the slide
 
         Returns:
             int: Index of the added slide
         """
         slide_index = len(self.slides)
-        slide = {"triangles": triangles, "name": name or f"slide_{slide_index}"}
+
+        # Check if triangles_data is a dict with both triangles and dominant_colors
+        if isinstance(triangles_data, dict) and "triangles" in triangles_data:
+            slide = {
+                "triangles": triangles_data["triangles"],
+                "name": name or f"slide_{slide_index}",
+            }
+
+            # Add dominant colors if available
+            if "dominant_colors" in triangles_data:
+                slide["dominant_colors"] = triangles_data["dominant_colors"]
+        else:
+            # Legacy format - just a list of triangles
+            slide = {
+                "triangles": triangles_data,
+                "name": name or f"slide_{slide_index}",
+            }
+
         self.slides.append(slide)
         return slide_index
 
@@ -233,76 +250,103 @@ class Slideshow:
 
     def to_dict(self):
         """
-        Convert the slideshow to a dictionary for serialization.
+        Convert the slideshow to a dictionary representation.
 
         Returns:
             dict: Dictionary representation of the slideshow
         """
-        return {"slides": self.slides, "transitions": self.transitions}
+        slides_dict = []
+        for i, slide in enumerate(self.slides):
+            slide_dict = {
+                "index": i,
+                "name": slide["name"],
+                "filename": f"slide_{i}.json",
+            }
+
+            # Include dominant_colors if available
+            if "dominant_colors" in slide:
+                slide_dict["dominant_colors"] = slide["dominant_colors"]
+
+            # Add transitions from this slide
+            transitions = [
+                {"to": t["to"], "filename": f"transition_{i}_to_{t['to']}.json"}
+                for t in self.transitions
+                if t["from"] == i
+            ]
+            if transitions:
+                slide_dict["transitions"] = transitions
+
+            slides_dict.append(slide_dict)
+
+        return {"total_slides": len(self.slides), "slides": slides_dict}
 
     def export_individual_slides(self, output_dir):
         """
-        Export each slide and its associated transitions as separate files.
-
-        This creates:
-        1. A manifest file with slide names and total count
-        2. Individual files for each slide with its triangle data
-        3. Transition files for each pair of slides
+        Export each slide and transition to separate files in the given directory.
 
         Args:
-            output_dir (str): Directory where files will be saved
+            output_dir (str): Directory to save the exported files
 
         Returns:
-            str: Path to the manifest file
+            dict: Manifest data with filenames for slides and transitions
         """
         output_dir = Path(output_dir)
         os.makedirs(output_dir, exist_ok=True)
 
-        # Create a manifest file with metadata
+        # Create a manifest for the exported files
         manifest = {"total_slides": len(self.slides), "slides": []}
 
-        # Export each slide as a separate file
+        # Export each slide
         for i, slide in enumerate(self.slides):
             slide_filename = f"slide_{i}.json"
             slide_path = output_dir / slide_filename
 
-            # Find transitions where this slide is the source
-            outgoing_transitions = []
-            for transition in self.transitions:
-                if transition["from"] == i:
-                    target = transition["to"]
-                    transition_filename = f"transition_{i}_to_{target}.json"
+            # Create the slide export format
+            slide_export = {"triangles": slide["triangles"]}
 
-                    # Save the transition to a separate file
-                    transition_path = output_dir / transition_filename
-                    with open(transition_path, "w") as f:
-                        json.dump(transition, f)
+            # Include dominant_colors if available
+            if "dominant_colors" in slide:
+                slide_export["dominant_colors"] = slide["dominant_colors"]
 
-                    outgoing_transitions.append(
-                        {"to": target, "filename": transition_filename}
-                    )
-
-            # Save slide info to the manifest
-            manifest["slides"].append(
-                {
-                    "index": i,
-                    "name": slide["name"],
-                    "filename": slide_filename,
-                    "transitions": outgoing_transitions,
-                }
-            )
-
-            # Save the slide data
+            # Write the slide to file
             with open(slide_path, "w") as f:
-                json.dump(slide, f)
+                json.dump(slide_export, f)
 
-        # Save the manifest
+            # Create an entry in the manifest
+            manifest_entry = {
+                "index": i,
+                "name": slide["name"],
+                "filename": slide_filename,
+            }
+
+            # Include dominant_colors in manifest if available
+            if "dominant_colors" in slide:
+                manifest_entry["dominant_colors"] = slide["dominant_colors"]
+
+            # Find transitions from this slide
+            transitions = []
+            for t in self.transitions:
+                if t["from"] == i:
+                    transition_filename = f"transition_{i}_to_{t['to']}.json"
+                    transition_path = output_dir / transition_filename
+
+                    # Write transition pairings to file
+                    with open(transition_path, "w") as f:
+                        json.dump(t["pairings"], f)
+
+                    transitions.append({"to": t["to"], "filename": transition_filename})
+
+            if transitions:
+                manifest_entry["transitions"] = transitions
+
+            manifest["slides"].append(manifest_entry)
+
+        # Write the manifest to file
         manifest_path = output_dir / "manifest.json"
         with open(manifest_path, "w") as f:
             json.dump(manifest, f, indent=2)
 
-        print(f"Exported {len(self.slides)} slides to {output_dir}")
-        return str(manifest_path)
+        return manifest
 
     @classmethod
     def from_dict(cls, data):

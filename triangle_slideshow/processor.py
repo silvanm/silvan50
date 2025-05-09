@@ -20,6 +20,7 @@ from triangler import TrianglerConfig, EdgeDetector, Sampler, Renderer
 import numpy as np
 from skimage.io import imread, imsave
 from skimage.transform import resize
+from .color_analyzer import extract_dominant_colors
 
 
 def crop_to_square(image):
@@ -73,6 +74,10 @@ def process_image(
             output_path = Path(output_path).absolute()
 
         print(f"Processing {image_path} with {num_points} points...")
+
+        # Extract dominant colors from the original image
+        dominant_colors = extract_dominant_colors(str(image_path))
+        print(f"Extracted dominant colors: {dominant_colors}")
 
         # Skip image processing in test mode
         temp_image_path = str(image_path)
@@ -141,8 +146,18 @@ def process_image(
         with open(output_path, "r") as f:
             triangles = json.load(f)
 
+        # Add dominant colors to the triangles data
+        triangles_with_colors = {
+            "triangles": triangles,
+            "dominant_colors": dominant_colors,
+        }
+
+        # Save the updated triangles with colors
+        with open(output_path, "w") as f:
+            json.dump(triangles_with_colors, f)
+
         print(f"Generated {len(triangles)} triangles from {image_path}")
-        return triangles
+        return triangles_with_colors
 
     except Exception as e:
         print(f"Error processing image {image_path}: {e}", file=sys.stderr)

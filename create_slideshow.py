@@ -20,13 +20,17 @@ def main():
     )
 
     parser.add_argument(
-        "--input-dir", "-i", required=True, help="Directory containing input images"
+        "--input-dir",
+        "-i",
+        default="images/",
+        help="Directory containing input images (default: images/)",
     )
 
     parser.add_argument(
         "--output-dir",
         "-o",
-        help="Directory for output files (default: <input_dir>/output)",
+        default="silvan50frontend/public/data/",
+        help="Directory for output files (default: silvan50frontend/public/data/)",
     )
 
     parser.add_argument(
@@ -39,8 +43,8 @@ def main():
         "--points",
         "-p",
         type=int,
-        default=1000,
-        help="Number of points for triangulation (default: 1000)",
+        default=2000,
+        help="Number of points for triangulation (default: 2000)",
     )
 
     parser.add_argument(
@@ -59,10 +63,10 @@ def main():
     )
 
     parser.add_argument(
-        "--round-robin",
-        "-r",
-        action="store_true",
-        help="Create round-robin transitions (last slide transitions back to first) and automatically split slideshow into individual files",
+        "--no-round-robin",
+        action="store_false",
+        dest="round_robin",
+        help="Disable round-robin transitions (last slide transitions back to first)",
     )
 
     parser.add_argument(
@@ -74,9 +78,10 @@ def main():
     )
 
     parser.add_argument(
-        "--split",
-        action="store_true",
-        help="Split slideshow into individual files for improved loading",
+        "--no-split",
+        action="store_false",
+        dest="split",
+        help="Disable splitting slideshow into individual files",
     )
 
     args = parser.parse_args()
@@ -88,11 +93,7 @@ def main():
         return 1
 
     # Setup output directory
-    if args.output_dir:
-        output_dir = Path(args.output_dir)
-    else:
-        output_dir = input_dir / "output"
-
+    output_dir = Path(args.output_dir)
     os.makedirs(output_dir, exist_ok=True)
 
     # Setup output file
@@ -110,8 +111,12 @@ def main():
     print(f"Using {args.points} points for triangulation")
     print(f"Max triangles for transitions: {args.max_triangles}")
     print(f"Cropping images to {args.square_size}x{args.square_size} squares")
-    if args.split or args.round_robin:
+    if args.split:
         print("Will split slideshow into individual files")
+    if args.round_robin:
+        print("Using round-robin transitions")
+    else:
+        print("Using sequential transitions only")
 
     # Process images to get triangles
     triangle_dict = process_images(
@@ -163,9 +168,8 @@ def main():
     print(f"Created {transition_count} transitions")
 
     # Save slideshow
-    if args.split or args.round_robin:
-        # If the -r/--round-robin flag is used, always save split files
-        # Get the directory of the output file to use as the split directory
+    if args.split:
+        # Save split files
         split_dir = output_file.parent
         manifest_path = save_slideshow_split(slideshow, split_dir)
 

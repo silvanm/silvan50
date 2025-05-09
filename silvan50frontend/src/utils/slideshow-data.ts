@@ -30,6 +30,7 @@ export interface ManifestSlide {
   index: number;
   name: string;
   filename: string;
+  dominant_colors: string[];
   transitions: SlideTransition[];
 }
 
@@ -91,19 +92,35 @@ export async function loadTransition(filename: string): Promise<Transition> {
       console.error(error);
       throw new Error(error);
     }
-    const data = await response.json() as Transition;
-    console.log(`Transition ${filename} loaded successfully:`, data);
-    return data;
+    
+    // The raw transition data is an array of pairings without a wrapper object
+    const pairingsArray = await response.json();
+    
+    // Create a proper Transition object with the pairings array
+    // Extract from and to indices from the filename (e.g., transition_0_to_1.json)
+    const matches = filename.match(/transition_(\d+)_to_(\d+)/);
+    if (!matches) {
+      throw new Error(`Invalid transition filename format: ${filename}`);
+    }
+    
+    const from = parseInt(matches[1], 10);
+    const to = parseInt(matches[2], 10);
+    
+    // Create the proper transition object
+    const transition: Transition = {
+      from,
+      to,
+      pairings: pairingsArray
+    };
+    
+    console.log(`Transition ${filename} loaded successfully:`, transition);
+    return transition;
   } catch (error) {
     console.error(`Error loading transition ${filename}:`, error);
     throw error;
   }
 }
 
-// For backward compatibility with existing code
-// Import the full slideshow data (will be removed once incremental loading is fully implemented)
-import slideshowDataJson from '../data/slideshow.json';
-export const slideshowData: SlideshowData = slideshowDataJson as SlideshowData;
 
 // In a real implementation, we would load this data from the JSON file
 // For example:
