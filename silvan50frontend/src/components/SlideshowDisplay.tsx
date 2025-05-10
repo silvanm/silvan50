@@ -12,14 +12,17 @@ import {
   loadSlide,
   loadTransition,
 } from "../utils/slideshow-data";
-import DominantColorSquare from "./DominantColorSquare";
 
 const TRANSITION_DURATION = 5; // seconds
 const SLIDE_DISPLAY_DURATION = 7; // seconds to display each slide before transitioning
 const MAX_TRIANGLE_DELAY = 4; // maximum delay in seconds for triangle animations based on position
 const PRELOAD_SLIDES = 2; // Number of slides to preload ahead
 
-export default function Slideshow() {
+interface SlideshowDisplayProps {
+  onDominantColorsChange: (colors: string[]) => void;
+}
+
+export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const slideNameRef = useRef<HTMLDivElement>(null);
 
@@ -30,11 +33,6 @@ export default function Slideshow() {
   // Store loaded data and state
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [dominantColors, setDominantColors] = useState<string[]>([
-    "#000000",
-    "#000000",
-    "#000000",
-  ]);
   const [isPaused, setIsPaused] = useState(false);
 
   const manifestRef = useRef<SlideshowManifest | null>(null);
@@ -86,12 +84,12 @@ export default function Slideshow() {
           return;
         }
 
-        // Set initial dominant color
+        // Set initial dominant color AND CALL CALLBACK
         if (
           manifest.slides[0].dominant_colors &&
           manifest.slides[0].dominant_colors.length > 0
         ) {
-          setDominantColors(manifest.slides[0].dominant_colors);
+          onDominantColorsChange(manifest.slides[0].dominant_colors);
         }
 
         // Load the first slide
@@ -281,81 +279,81 @@ export default function Slideshow() {
 
   // Set up animation cycle that doesn't cause re-renders
   const setupAnimationCycle = () => {
-    // Clear any existing timer
     if (animationTimerRef.current) {
       clearInterval(animationTimerRef.current);
     }
 
     animationTimerRef.current = setInterval(async () => {
-      // Skip if paused
-      if (isPaused) return;
+      if (isPaused) return; 
       
       const currentIdx = currentSlideIndexRef.current;
-      const nextIdx = nextSlideIndexRef.current;
+      const targetSlideIdx = nextSlideIndexRef.current; // Slide we are transitioning TO
 
-      // Ensure both slides are loaded
-      if (
-        !loadedSlidesRef.current.has(currentIdx) ||
-        !loadedSlidesRef.current.has(nextIdx)
-      ) {
-        console.warn(
-          `Cannot animate: Slides ${currentIdx} or ${nextIdx} not loaded`
-        );
-        return;
+      const currentSlide = loadedSlidesRef.current.get(currentIdx);
+      let targetSlide = loadedSlidesRef.current.get(targetSlideIdx);
+
+      // Ensure target slide is loaded to get its colors. Preload if necessary.
+      if (!targetSlide) {
+        console.warn(`Target slide ${targetSlideIdx} not preloaded. Loading now...`);
+        await loadSlideData(targetSlideIdx);
+        targetSlide = loadedSlidesRef.current.get(targetSlideIdx); 
       }
 
-      // Find transition
-      const transitionKey = `${currentIdx}_to_${nextIdx}`;
+      if (!currentSlide || !targetSlide) {
+        console.warn(
+          `Cannot animate: Current slide ${currentIdx} or target slide ${targetSlideIdx} not loaded after attempt.`
+        );
+        return; 
+      }
+
+      // --- Update dominant colors for the TARGET slide (before transition) --- 
+      if (manifestRef.current) {
+        const targetSlideInfo = manifestRef.current.slides.find(
+          (s) => s.index === targetSlideIdx
+        );
+        if (
+          targetSlideInfo &&
+          targetSlideInfo.dominant_colors &&
+          targetSlideInfo.dominant_colors.length > 0
+        ) {
+          onDominantColorsChange(targetSlideInfo.dominant_colors); 
+        }
+      }
+      // --- End color update ---
+
+      const transitionKey = `${currentIdx}_to_${targetSlideIdx}`;
       const transition = loadedTransitionsRef.current.get(transitionKey);
 
-      // Animate if transition exists
       if (transition) {
         animateTransition(
           transition,
-          loadedSlidesRef.current.get(currentIdx)!,
-          loadedSlidesRef.current.get(nextIdx)!
+          currentSlide,
+          targetSlide 
         );
       } else {
-        console.warn(`No transition found for ${currentIdx} → ${nextIdx}`);
+        console.warn(`No transition found for ${currentIdx} → ${targetSlideIdx}. Snapping content.`);
+        // If no transition, colors changed, now update slide name immediately.
+        updateSlideName(targetSlide.name); 
       }
 
-      // Update refs after animation completes
       setTimeout(async () => {
-        // Skip if paused
-        if (isPaused) return;
+        if (isPaused) return; 
         
-        const newNextIdx = getNextSlideIndex(nextIdx);
-        currentSlideIndexRef.current = nextIdx;
-        nextSlideIndexRef.current = newNextIdx;
+        currentSlideIndexRef.current = targetSlideIdx;
+        const newNextSlideIdx = getNextSlideIndex(targetSlideIdx);
+        nextSlideIndexRef.current = newNextSlideIdx;
 
-        // Update slide name without re-rendering triangles
-        const nextSlide = loadedSlidesRef.current.get(nextIdx);
-        if (nextSlide) {
-          updateSlideName(nextSlide.name);
-
-          // Update the dominant color
-          if (manifestRef.current) {
-            const slideInfo = manifestRef.current.slides.find(
-              (s) => s.index === nextIdx
-            );
-            if (
-              slideInfo &&
-              slideInfo.dominant_colors &&
-              slideInfo.dominant_colors.length > 0
-            ) {
-              setDominantColors(slideInfo.dominant_colors);
-            }
-          }
+        // Update slide name for the slide we just transitioned TO (if not already updated due to no transition)
+        if (transition) { // Only if there was a transition, otherwise name updated above
+            updateSlideName(targetSlide.name);
         }
 
-        // Preload next slide if not already loaded
-        if (!loadedSlidesRef.current.has(newNextIdx)) {
-          await loadSlideData(newNextIdx);
+        if (!loadedSlidesRef.current.has(newNextSlideIdx)) {
+          await loadSlideData(newNextSlideIdx);
         }
       }, TRANSITION_DURATION * 1000);
     }, (TRANSITION_DURATION + SLIDE_DISPLAY_DURATION) * 1000);
 
-    // Return cleanup function
     return () => {
       if (animationTimerRef.current) {
         clearInterval(animationTimerRef.current);
@@ -465,16 +463,7 @@ export default function Slideshow() {
   if (isLoading) {
     return (
       <div
-        className="slideshow-loading"
-        style={{
-          width: "100vw",
-          height: "100vh",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          backgroundColor: "black",
-          color: "white",
-        }}
+        className="slideshow-loading flex justify-center items-center bg-black text-white w-full h-full"
       >
         Loading slideshow...
       </div>
@@ -484,16 +473,7 @@ export default function Slideshow() {
   if (errorMessage) {
     return (
       <div
-        className="slideshow-error"
-        style={{
-          width: "100vw",
-          height: "100vh",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          backgroundColor: "black",
-          color: "red",
-        }}
+        className="slideshow-error flex justify-center items-center bg-black text-red-500 w-full h-full"
       >
         Error: {errorMessage}
       </div>
@@ -502,85 +482,29 @@ export default function Slideshow() {
 
   return (
     <div
-      className="slideshow-container"
-      style={{
-        width: "100vw",
-        height: "100vh",
-        overflow: "hidden",
-        position: "relative",
-        backgroundColor: "black",
-      }}
+      className="slideshow-container w-full h-full overflow-hidden relative bg-black"
     >
       <svg
         ref={svgRef}
         viewBox="0 0 1000 800"
         preserveAspectRatio="xMidYMid slice"
-        className="w-full h-full"
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-        }}
+        className="w-full h-full absolute top-0 left-0 object-cover"
       />
       <div
         ref={slideNameRef}
-        className="slide-name"
-        style={{
-          position: "absolute",
-          bottom: "2rem",
-          left: "2rem",
-          zIndex: 10,
-          color: "white",
-        }}
+        className="slide-name absolute bottom-8 left-8 z-10 text-white"
       ></div>
-      <div
-      className="w-full"
-        style={{
-          position: "absolute",
-          top: "0",
-          zIndex: 10,
-        }}
-      >
-        <DominantColorSquare
-          colors={dominantColors}
-          transitionDuration={TRANSITION_DURATION}
-        />
-      </div>
-      
       {/* Debug Panel */}
       <div
-        className="debug-panel"
-        style={{
-          position: "absolute",
-          bottom: "2rem",
-          right: "2rem",
-          zIndex: 20,
-          backgroundColor: "rgba(0, 0, 0, 0.7)",
-          padding: "0.5rem",
-          borderRadius: "0.5rem",
-          display: "flex",
-          flexDirection: "column",
-          gap: "0.5rem",
-        }}
+        className="debug-panel absolute bottom-8 right-8 z-20 bg-black bg-opacity-70 p-2 rounded-lg flex flex-col gap-2"
       >
         <button
           onClick={togglePause}
-          style={{
-            backgroundColor: isPaused ? "#4CAF50" : "#f44336",
-            color: "white",
-            border: "none",
-            padding: "0.5rem 1rem",
-            borderRadius: "0.25rem",
-            cursor: "pointer",
-            fontWeight: "bold",
-          }}
+          className={`font-bold text-white border-none py-2 px-4 rounded cursor-pointer ${isPaused ? "bg-green-500" : "bg-red-500"}`}
         >
           {isPaused ? "Play" : "Pause"}
         </button>
-        <div style={{ color: "white", fontSize: "0.8rem" }}>
+        <div className="text-white text-xs">
           Current Slide: {currentSlideIndexRef.current}
         </div>
       </div>

@@ -1,6 +1,6 @@
 import React from 'react';
 
-interface DominantColorSquareProps {
+interface InfoDisplaySectionProps {
   colors: string[];
   size?: number;
   top?: string;
@@ -9,7 +9,7 @@ interface DominantColorSquareProps {
   transitionDuration?: number;
 }
 
-const DominantColorSquare: React.FC<DominantColorSquareProps> = ({
+const InfoDisplaySection: React.FC<InfoDisplaySectionProps> = ({
   colors,
   top = '2rem',
   right = '2rem',
@@ -18,23 +18,23 @@ const DominantColorSquare: React.FC<DominantColorSquareProps> = ({
 }) => {
   return (
     <div
-      className="dominant-color-square w-full p-5"
+      className="info-display-section w-full h-full p-5"
       style={{
         top,
         right,
         zIndex,
         backgroundColor: colors[0] || '#000000',
-        transition: `background-color ${transitionDuration}s ease-in-out`,        
+        transition: `background-color ${transitionDuration}s ease-in-out`,
       }}
     >
       <h1 style={{ 
         color: colors[2], 
-        transition: `color ${transitionDuration}s ease-in-out`,  
+        transition: `color ${transitionDuration}s ease-in-out`,
       }}
       className="text-6xl font-bold"
-      >Silvan50</h1>
+      >Silvan51</h1>
     </div>
   );
 };
 
-export default DominantColorSquare; 
+export default InfoDisplaySection; 

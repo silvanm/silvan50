@@ -1,11 +1,74 @@
-import Slideshow from '../components/Slideshow';
+"use client"; // Add "use client" because of useState and useEffect
 
-export default function Home() {
+import React, { useState, useEffect } from "react";
+import InfoDisplaySection from "../components/InfoDisplaySection"; // Updated import path and name
+import SlideshowDisplay from "../components/SlideshowDisplay"; // Adjusted path
+
+export default function Home() { // Renamed from App to Home and made default export
+  const [isPortrait, setIsPortrait] = useState(
+    () => typeof window !== "undefined" && window.innerHeight > window.innerWidth // Added window check for SSR
+  );
+  // Ensure dominantColors state is defined ONLY ONCE
+  const [dominantColors, setDominantColors] = useState<string[]>(["#000", "#000", "#000"]);
+
+  useEffect(() => {
+    // Ensure window is defined (for client-side only execution)
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const handleResize = () => {
+      setIsPortrait(window.innerHeight > window.innerWidth);
+    };
+
+    window.addEventListener("resize", handleResize);
+    // Call handler once initially to set the correct layout
+    handleResize(); 
+    
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // Conditional rendering for SSR safety if isPortrait is not yet determined
+  if (typeof window === "undefined" || isPortrait === null) {
+    // You might want a placeholder or null during SSR or before first paint
+    return null; 
+  }
+
   return (
-    <main className="flex min-h-screen">
-      <div className="w-full max-w-6xl relative">
-        <Slideshow />
-      </div>
-    </main>
+    <div className="w-screen h-screen overflow-hidden"> {/* Added overflow-hidden to prevent scrollbars from potential slight overflows */}
+      {isPortrait ? (
+        // Portrait layout: InfoDisplaySection top, SlideshowDisplay bottom
+        <div className="flex flex-col h-full">
+          {/* InfoDisplaySection at the top (approx 1/3 height) */}
+          <div className="h-[20%] w-full"> 
+            <InfoDisplaySection
+              colors={dominantColors}
+            />
+          </div>
+          {/* SlideshowDisplay at the bottom (approx 2/3 height) */}
+          <div className="h-[80%] w-full">
+            <SlideshowDisplay 
+              onDominantColorsChange={(newColors) => setDominantColors(newColors)}
+            />
+          </div>
+        </div>
+      ) : (
+        // Landscape layout: SlideshowDisplay left, InfoDisplaySection right
+        <div className="flex flex-row h-full">
+          {/* SlideshowDisplay on the left (approx 2/3 width) */}
+          <div className="w-[66%] h-full">
+            <SlideshowDisplay 
+              onDominantColorsChange={(newColors) => setDominantColors(newColors)}
+            />            
+          </div>
+          {/* InfoDisplaySection on the right (approx 1/3 width) */}
+          <div className="flex-1 min-w-[33%] h-full">
+            <InfoDisplaySection
+              colors={dominantColors}
+            />
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
