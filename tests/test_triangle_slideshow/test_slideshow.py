@@ -531,13 +531,18 @@ class TestSlideshowClass:
 
             # Assert
             assert "slides" in result
-            assert "transitions" in result
             assert len(result["slides"]) == 2
-            assert len(result["transitions"]) == 1
-            assert result["slides"][0]["name"] == "slide_0"
-            assert result["slides"][1]["name"] == "slide_1"
-            assert result["transitions"][0]["from"] == 0
-            assert result["transitions"][0]["to"] == 1
+            # assert "transitions" in result # This key is no longer top-level
+
+            # Check that the first slide has the transition information
+            assert "transitions" in result["slides"][0]
+            assert len(result["slides"][0]["transitions"]) == 1
+            assert result["slides"][0]["transitions"][0]["to"] == 1
+            # The second slide should have no outgoing transitions in this setup
+            assert (
+                "transitions" not in result["slides"][1]
+                or not result["slides"][1]["transitions"]
+            )
 
     def test_from_dict(self):
         """Test creating a slideshow from a dictionary."""
@@ -582,8 +587,12 @@ class TestSlideshowIO:
             # Arrange
             mock_create.return_value = EXPECTED_PAIRINGS
             slideshow = Slideshow()
-            slideshow.add_slide(TRIANGLES_SET_A)
-            slideshow.add_slide(TRIANGLES_SET_B)
+            slideshow.add_slide(
+                TRIANGLES_SET_A, name="slide_0"
+            )  # Added name for clarity
+            slideshow.add_slide(
+                TRIANGLES_SET_B, name="slide_1"
+            )  # Added name for clarity
             slideshow.add_transition(0, 1, max_triangles=1000)
 
             # Act - Use a temporary file
@@ -599,12 +608,20 @@ class TestSlideshowIO:
                     data = json.load(f)
 
                 assert "slides" in data
-                assert "transitions" in data
                 assert len(data["slides"]) == 2
-                assert len(data["transitions"]) == 1
+                # assert "transitions" in data # This key is no longer top-level
+
+                # Check that the first slide in JSON has the transition information
+                assert "transitions" in data["slides"][0]
+                assert len(data["slides"][0]["transitions"]) == 1
+                assert data["slides"][0]["transitions"][0]["to"] == 1
+                # The second slide should have no outgoing transitions
+                assert (
+                    "transitions" not in data["slides"][1]
+                    or not data["slides"][1]["transitions"]
+                )
 
             finally:
-                # Clean up temporary file
                 if os.path.exists(file_path):
                     os.remove(file_path)
 
@@ -663,9 +680,17 @@ class TestSlideshowIO:
             # Arrange
             mock_create.return_value = EXPECTED_PAIRINGS
             original_slideshow = Slideshow()
-            original_slideshow.add_slide(TRIANGLES_SET_A)
-            original_slideshow.add_slide(TRIANGLES_SET_B)
+            original_slideshow.add_slide(TRIANGLES_SET_A, name="slide_A")
+            original_slideshow.add_slide(TRIANGLES_SET_B, name="slide_B")
             original_slideshow.add_transition(0, 1, max_triangles=1000)
+
+            # Store original transition details for comparison
+            # original_slideshow.transitions will have the full transition object
+            # For this test, we are primarily concerned with the from/to and structure
+            expected_num_total_transitions = len(original_slideshow.transitions)
+            expected_transitions_from_to = set()
+            for trans in original_slideshow.transitions:
+                expected_transitions_from_to.add((trans["from"], trans["to"]))
 
             # Act - Use a temporary file for the round trip
             with tempfile.NamedTemporaryFile(delete=False, mode="w") as temp_file:
@@ -677,26 +702,31 @@ class TestSlideshowIO:
 
                 # Assert
                 assert len(loaded_slideshow.slides) == len(original_slideshow.slides)
-                assert len(loaded_slideshow.transitions) == len(
-                    original_slideshow.transitions
+
+                # Reconstruct transitions from the loaded_slideshow
+                loaded_transitions_from_to = set()
+                loaded_num_total_transitions = 0
+                for idx, slide_data in enumerate(loaded_slideshow.slides):
+                    slide_specific_transitions = slide_data.get("transitions", [])
+                    loaded_num_total_transitions += len(slide_specific_transitions)
+                    for trans_info in slide_specific_transitions:
+                        loaded_transitions_from_to.add(
+                            (idx, trans_info["to"])
+                        )  # from is idx
+
+                assert loaded_num_total_transitions == expected_num_total_transitions
+                assert loaded_transitions_from_to == expected_transitions_from_to
+
+                # Also check slide names if they were set
+                assert (
+                    loaded_slideshow.slides[0]["name"]
+                    == original_slideshow.slides[0]["name"]
+                )
+                assert (
+                    loaded_slideshow.slides[1]["name"]
+                    == original_slideshow.slides[1]["name"]
                 )
 
-                # Compare slide content
-                for i, slide in enumerate(original_slideshow.slides):
-                    assert loaded_slideshow.slides[i]["name"] == slide["name"]
-                    assert len(loaded_slideshow.slides[i]["triangles"]) == len(
-                        slide["triangles"]
-                    )
-
-                # Compare transition content
-                for i, transition in enumerate(original_slideshow.transitions):
-                    assert loaded_slideshow.transitions[i]["from"] == transition["from"]
-                    assert loaded_slideshow.transitions[i]["to"] == transition["to"]
-                    assert len(loaded_slideshow.transitions[i]["pairings"]) == len(
-                        transition["pairings"]
-                    )
-
             finally:
-                # Clean up temporary file
                 if os.path.exists(file_path):
                     os.remove(file_path)

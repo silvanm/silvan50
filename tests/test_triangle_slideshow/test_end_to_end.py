@@ -75,9 +75,12 @@ class TestEndToEnd:
 
                 # Verify we got the expected triangle sets
                 assert len(processed_triangles) == 3
-                assert len(processed_triangles[0]) == len(TRIANGLES_SET_A)
-                assert len(processed_triangles[1]) == len(TRIANGLES_SET_B)
-                assert len(processed_triangles[2]) == len(TRIANGLES_SET_C)
+                assert len(processed_triangles[0]["triangles"]) == len(TRIANGLES_SET_A)
+                assert processed_triangles[0]["triangles"] == TRIANGLES_SET_A
+                assert len(processed_triangles[1]["triangles"]) == len(TRIANGLES_SET_B)
+                assert processed_triangles[1]["triangles"] == TRIANGLES_SET_B
+                assert len(processed_triangles[2]["triangles"]) == len(TRIANGLES_SET_C)
+                assert processed_triangles[2]["triangles"] == TRIANGLES_SET_C
 
                 # Step 2: Create a slideshow from the processed triangles
                 slideshow = Slideshow()
@@ -122,19 +125,23 @@ class TestEndToEnd:
 
                 # Verify the loaded slideshow has the expected structure
                 assert len(loaded_slideshow.slides) == 3
-                assert len(loaded_slideshow.transitions) == 3
+
+                # Reconstruct transitions from the loaded slide data
+                actual_loaded_transitions = []
+                for idx, slide_data in enumerate(loaded_slideshow.slides):
+                    for trans_info in slide_data.get("transitions", []):
+                        actual_loaded_transitions.append((idx, trans_info["to"]))
+                assert len(actual_loaded_transitions) == 3  # Expect 3 transitions total
 
                 # Verify slide names are preserved
                 for i in range(3):
                     assert loaded_slideshow.slides[i]["name"] == f"slide_{i}"
 
                 # Verify the transition pattern is preserved
-                loaded_transitions = [
-                    (t["from"], t["to"]) for t in loaded_slideshow.transitions
-                ]
-                assert (0, 1) in loaded_transitions
-                assert (1, 2) in loaded_transitions
-                assert (2, 0) in loaded_transitions
+                # Original transitions were (0,1), (1,2), (2,0)
+                assert (0, 1) in actual_loaded_transitions
+                assert (1, 2) in actual_loaded_transitions
+                assert (2, 0) in actual_loaded_transitions
 
     def test_error_handling(self):
         """Test error handling in the end-to-end process."""
@@ -204,12 +211,37 @@ class TestEndToEnd:
                 assert len(results) == 3
 
                 # Check that each image was processed correctly
-                for i, triangles in enumerate(
+                for i, triangles_list in enumerate(
                     [TRIANGLES_SET_A, TRIANGLES_SET_B, TRIANGLES_SET_C]
                 ):
-                    output_filename = f"image_{i}.json"
+                    # Construct the key as it appears in the results dictionary (filename)
+                    # Assuming images are named image_0.jpg, image_1.jpg, etc.
+                    # and process_images returns keys like "image_0.json"
+                    # The mock_convert saves image_0.json, image_1.json etc.
+                    # The results from process_images uses these as keys.
+
+                    # The original test code had a slight mismatch here if process_images sorted differently
+                    # than the loop. Let's find the correct key based on image name.
+                    # For simplicity, assuming the order is preserved or we map it.
+                    # The test structure for results[output_filename] was already correct.
+
+                    # The original test code had a slight mismatch here if process_images sorted differently
+                    # than the loop. Let's find the correct key based on image name.
+                    # For simplicity, assuming the order is preserved or we map it.
+                    # The test structure for results[output_filename] was already correct.
+
+                    output_filename = (
+                        f"image_{i}.json"  # This matches the mocked output file name
+                    )
                     assert output_filename in results
-                    assert len(results[output_filename]) == len(triangles)
+                    assert len(results[output_filename]["triangles"]) == len(
+                        triangles_list
+                    )
+                    assert results[output_filename]["triangles"] == triangles_list
+                    # Also check dominant_colors if it's consistent from the mock (it's a placeholder)
+                    assert (
+                        results[output_filename]["dominant_colors"] == ["#FFFFFF"] * 3
+                    )
 
                 # Create a slideshow from the results
                 slideshow = Slideshow()
@@ -278,20 +310,27 @@ class TestEndToEnd:
 
                 # Verify the loaded slideshow has the same structure
                 assert len(loaded_slideshow.slides) == 3
-                assert len(loaded_slideshow.transitions) == 3
+
+                # Reconstruct and verify transitions from loaded slide data
+                actual_loaded_transitions_tuples = []
+                total_transitions_count = 0
+                for idx, slide_data in enumerate(loaded_slideshow.slides):
+                    slide_transitions = slide_data.get("transitions", [])
+                    total_transitions_count += len(slide_transitions)
+                    for trans_info in slide_transitions:
+                        actual_loaded_transitions_tuples.append((idx, trans_info["to"]))
+
+                assert total_transitions_count == 3  # Expect 3 transitions in total
 
                 # Verify slide names are preserved
                 assert loaded_slideshow.slides[0]["name"] == "slide_A"
                 assert loaded_slideshow.slides[1]["name"] == "slide_B"
                 assert loaded_slideshow.slides[2]["name"] == "slide_C"
 
-                # Verify transitions are preserved
-                loaded_transitions = [
-                    (t["from"], t["to"]) for t in loaded_slideshow.transitions
-                ]
-                assert (0, 1) in loaded_transitions  # A -> B
-                assert (1, 2) in loaded_transitions  # B -> C
-                assert (2, 0) in loaded_transitions  # C -> A
+                # Verify transitions are preserved (A->B is 0->1, B->C is 1->2, C->A is 2->0)
+                assert (0, 1) in actual_loaded_transitions_tuples  # A -> B
+                assert (1, 2) in actual_loaded_transitions_tuples  # B -> C
+                assert (2, 0) in actual_loaded_transitions_tuples  # C -> A
 
                 # Also verify the JSON structure directly
                 with open(output_path, "r") as f:
@@ -299,17 +338,20 @@ class TestEndToEnd:
 
                 # Check top-level structure
                 assert "slides" in json_data
-                assert "transitions" in json_data
+                # assert "transitions" in json_data # This key is no longer top-level
                 assert len(json_data["slides"]) == 3
-                assert len(json_data["transitions"]) == 3
+                # assert len(json_data["transitions"]) == 3 # This key is no longer top-level
 
-                # Check round-robin transition pattern in JSON
-                json_transitions = [
-                    (t["from"], t["to"]) for t in json_data["transitions"]
-                ]
-                assert (0, 1) in json_transitions
-                assert (1, 2) in json_transitions
-                assert (2, 0) in json_transitions
+                # Check round-robin transition pattern in JSON (within each slide)
+                # Slide 0 (A) should transition to slide 1 (B)
+                assert len(json_data["slides"][0].get("transitions", [])) == 1
+                assert json_data["slides"][0]["transitions"][0]["to"] == 1
+                # Slide 1 (B) should transition to slide 2 (C)
+                assert len(json_data["slides"][1].get("transitions", [])) == 1
+                assert json_data["slides"][1]["transitions"][0]["to"] == 2
+                # Slide 2 (C) should transition to slide 0 (A)
+                assert len(json_data["slides"][2].get("transitions", [])) == 1
+                assert json_data["slides"][2]["transitions"][0]["to"] == 0
 
             finally:
                 # Clean up temp file
