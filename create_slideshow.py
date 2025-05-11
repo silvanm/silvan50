@@ -9,6 +9,7 @@ import argparse
 import os
 import sys
 from pathlib import Path
+import copy  # Added for deep copying slide data
 
 from triangle_slideshow.processor import process_images
 from triangle_slideshow.slideshow import Slideshow, save_slideshow, save_slideshow_split
@@ -92,6 +93,8 @@ def main():
         print(f"Error: Input directory {input_dir} does not exist")
         return 1
 
+    sq_size = args.square_size
+
     # Setup output directory
     output_dir = Path(args.output_dir)
     os.makedirs(output_dir, exist_ok=True)
@@ -110,7 +113,7 @@ def main():
     print(f"Output slideshow: {output_file}")
     print(f"Using {args.points} points for triangulation")
     print(f"Max triangles for transitions: {args.max_triangles}")
-    print(f"Cropping images to {args.square_size}x{args.square_size} squares")
+    print(f"Cropping images to {sq_size}x{sq_size} squares")
     if args.split:
         print("Will split slideshow into individual files")
     if args.round_robin:
@@ -124,17 +127,99 @@ def main():
         output_dir=output_dir,
         num_points=args.points,
         extensions=extensions,
-        square_size=args.square_size,
+        square_size=sq_size,
     )
 
     if not triangle_dict:
-        print("No images processed successfully")
+        print("No images processed successfully. Cannot create initial black slide.")
         return 1
 
     # Create slideshow
     slideshow = Slideshow()
 
-    # Add slides in alphabetical order by filename
+    # Create and add the initial black slide
+    try:
+        # Get data from the alphabetically last image to use its geometry
+        last_image_key = sorted(triangle_dict.keys())[-1]
+        template_slide_data = triangle_dict[last_image_key]
+
+        black_slide_data = copy.deepcopy(template_slide_data)
+
+        # Modify dominant colors to black
+        if isinstance(black_slide_data, dict):
+            # Prioritize 'dominant_colors' (plural, list of strings)
+            if "dominant_colors" in black_slide_data and isinstance(
+                black_slide_data["dominant_colors"], list
+            ):
+                black_slide_data["dominant_colors"] = ["#000000"]
+                # print("Set 'dominant_colors' to ['#000000'] for black slide.")
+            else:
+                # Fallback to checking other common dominant color keys for single values
+                other_dominant_color_keys = [
+                    "dominant_color",
+                    "dominantColor",
+                    "avg_color",
+                    "average_color",
+                ]
+                found_other_key = False
+                for dc_key in other_dominant_color_keys:
+                    if dc_key in black_slide_data:
+                        original_value = black_slide_data[dc_key]
+                        if isinstance(original_value, str):  # Single hex string
+                            black_slide_data[dc_key] = "#000000"
+                            found_other_key = True
+                            break
+                        elif (
+                            isinstance(original_value, (list, tuple))
+                            and len(original_value) >= 3
+                            and all(isinstance(n, int) for n in original_value)
+                        ):
+                            black_slide_data[dc_key] = tuple([0] * len(original_value))
+                            found_other_key = True
+                            break
+                # if found_other_key:
+                #     print(f"Set fallback dominant color field to black for black slide.")
+                # else:
+                #     print("Warning: Could not find or appropriately modify a known dominant color key for the black slide.")
+
+        # Modify triangle colors to black
+        triangle_data_list = None
+        if isinstance(black_slide_data, list):
+            triangle_data_list = black_slide_data
+        elif isinstance(black_slide_data, dict):
+            geometry_keys = [
+                "triangles",
+                "geometry",
+                "verts",
+                "vertices",
+                "data",
+                "points",
+                "triangle_data",
+                "triangles_data",
+            ]
+            for g_key in geometry_keys:
+                if g_key in black_slide_data and isinstance(
+                    black_slide_data[g_key], list
+                ):
+                    triangle_data_list = black_slide_data[g_key]
+                    break
+
+        if triangle_data_list:  # This should be the list of triangle objects
+            for triangle_object in triangle_data_list:
+                if isinstance(triangle_object, dict) and "color" in triangle_object:
+                    color_value = triangle_object["color"]
+                    if isinstance(color_value, list) and len(color_value) >= 3:
+                        color_value[0] = 0
+                        color_value[1] = 0
+                        color_value[2] = 0
+
+        slideshow.add_slide(black_slide_data, name="000_black_intro_slide")
+        print("Added initial black slide using last image's geometry, colored black.")
+
+    except Exception as e:
+        print(f"Error creating initial black slide: {e}. Proceeding without it.")
+
+    # Add original slides from triangle_dict
     for filename in sorted(triangle_dict.keys()):
         slide_name = Path(filename).stem
         triangles = triangle_dict[filename]

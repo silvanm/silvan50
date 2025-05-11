@@ -20,9 +20,10 @@ const PRELOAD_SLIDES = 2; // Number of slides to preload ahead
 
 interface SlideshowDisplayProps {
   onDominantColorsChange: (colors: string[]) => void;
+  onFirstTransitionStart?: () => void;
 }
 
-export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayProps) {
+export default function Slideshow({ onDominantColorsChange, onFirstTransitionStart }: SlideshowDisplayProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const slideNameRef = useRef<HTMLDivElement>(null);
 
@@ -34,11 +35,14 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPaused, setIsPaused] = useState(false);
+  const wasManuallyPausedRef = useRef(false); // Added to track if pause was user-initiated
 
   const manifestRef = useRef<SlideshowManifest | null>(null);
   const loadedSlidesRef = useRef<Map<number, Slide>>(new Map());
   const loadedTransitionsRef = useRef<Map<string, Transition>>(new Map());
-  const animationTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const animationTimerRef = useRef<NodeJS.Timeout | null>(null); // For the main interval
+  const postTransitionUpdateTimerRef = useRef<NodeJS.Timeout | null>(null); // For updates after a single transition
+  const hasFirstTransitionStartedRef = useRef(false);
 
   // Function to convert RGB array to CSS color string
   const rgbToString = (rgb: [number, number, number], opacity = 1) => {
@@ -61,7 +65,94 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
 
   // Toggle pause state
   const togglePause = () => {
-    setIsPaused(prev => !prev);
+    const newPauseState = !isPaused;
+    wasManuallyPausedRef.current = newPauseState; // Update based on new state before setting it
+    setIsPaused(newPauseState);
+  };
+
+  // Core logic for one transition cycle
+  const advanceSlideAndAnimate = async () => {
+    // If this function can be called when isPaused is true from an external source,
+    // add a check: if (isPaused) return;
+
+    const currentIdx = currentSlideIndexRef.current;
+    const targetSlideIdx = nextSlideIndexRef.current;
+
+    const currentSlide = loadedSlidesRef.current.get(currentIdx);
+    let targetSlide = loadedSlidesRef.current.get(targetSlideIdx);
+
+    if (!targetSlide) {
+      console.warn(`Target slide ${targetSlideIdx} not preloaded for advanceSlideAndAnimate. Loading now...`);
+      await loadSlideData(targetSlideIdx);
+      targetSlide = loadedSlidesRef.current.get(targetSlideIdx);
+    }
+
+    if (!currentSlide || !targetSlide) {
+      console.error(
+        `Cannot animate: Current slide ${currentIdx} or target slide ${targetSlideIdx} not loaded after attempt.`
+      );
+      // Potentially try to recover or stop the slideshow
+      return;
+    }
+
+    // Update dominant colors for the TARGET slide (before transition)
+    if (manifestRef.current) {
+      const targetSlideInfo = manifestRef.current.slides.find(
+        (s) => s.index === targetSlideIdx
+      );
+      if (
+        targetSlideInfo &&
+        targetSlideInfo.dominant_colors &&
+        targetSlideInfo.dominant_colors.length > 0
+      ) {
+        onDominantColorsChange(targetSlideInfo.dominant_colors);
+      }
+    }
+
+    const transitionKey = `${currentIdx}_to_${targetSlideIdx}`;
+    const transition = loadedTransitionsRef.current.get(transitionKey);
+
+    if (transition) {
+      animateTransition(transition, currentSlide, targetSlide); // This calls onFirstTransitionStart
+    } else {
+      console.warn(`No transition found for ${currentIdx} → ${targetSlideIdx}. Snapping content.`);
+      updateSlideName(targetSlide.name); // Colors already changed, update name
+    }
+
+    // Clear any existing post-transition timer
+    if (postTransitionUpdateTimerRef.current) {
+      clearTimeout(postTransitionUpdateTimerRef.current);
+    }
+
+    // This timeout is for tasks after the transition animation finishes
+    postTransitionUpdateTimerRef.current = setTimeout(async () => {
+      currentSlideIndexRef.current = targetSlideIdx;
+      const newNextSlideIdx = getNextSlideIndex(targetSlideIdx);
+      nextSlideIndexRef.current = newNextSlideIdx;
+
+      // Update slide name for the slide we just transitioned TO (if there was a transition)
+      // If no transition, name was updated above.
+      if (transition) {
+          updateSlideName(targetSlide.name);
+      }
+
+      // Preload the next-next slide
+      if (!loadedSlidesRef.current.has(newNextSlideIdx)) {
+        await loadSlideData(newNextSlideIdx);
+      }
+      postTransitionUpdateTimerRef.current = null; // Clear ref after execution
+    }, TRANSITION_DURATION * 1000);
+  };
+  
+  // Set up the recurring animation cycle
+  const setupAnimationCycle = () => {
+    if (animationTimerRef.current) {
+      clearInterval(animationTimerRef.current);
+    }
+    animationTimerRef.current = setInterval(async () => {
+      if (isPaused) return; // Check current pause state
+      await advanceSlideAndAnimate();
+    }, (TRANSITION_DURATION + SLIDE_DISPLAY_DURATION) * 1000);
   };
 
   // Load the initial manifest and first slide
@@ -71,20 +162,15 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
         setIsLoading(true);
         console.log("Initializing slideshow...");
 
-        // Load the manifest
-        console.log("Loading manifest...");
         const manifest = await loadSlideshowManifest();
-        console.log("Manifest loaded:", manifest);
         manifestRef.current = manifest;
 
         if (manifest.slides.length === 0) {
-          console.error("No slides found in manifest");
           setErrorMessage("No slides found in manifest");
           setIsLoading(false);
           return;
         }
 
-        // Set initial dominant color AND CALL CALLBACK
         if (
           manifest.slides[0].dominant_colors &&
           manifest.slides[0].dominant_colors.length > 0
@@ -92,23 +178,27 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
           onDominantColorsChange(manifest.slides[0].dominant_colors);
         }
 
-        // Load the first slide
-        console.log("Loading first slide (index 0)...");
-        await loadSlideData(0);
-        console.log("First slide loaded:", loadedSlidesRef.current.get(0));
+        await loadSlideData(0); // Load slide 0
 
-        // Preload the next few slides
+        // Preload the next few slides (e.g., slide 1 for the first immediate transition)
         for (let i = 1; i <= PRELOAD_SLIDES; i++) {
           const preloadIndex = i % manifest.total_slides;
-          console.log(`Preloading slide ${preloadIndex}...`);
-          loadSlideData(preloadIndex);
+          if (preloadIndex === 0 && manifest.total_slides > 1) continue; // Avoid preloading 0 if it's the current
+          if (!loadedSlidesRef.current.has(preloadIndex)) {
+            await loadSlideData(preloadIndex);
+          }
         }
+        
+        console.log("Rendering initial triangles for slide 0...");
+        renderInitialTriangles(); // Display slide 0
 
-        // Do NOT render triangles here - we'll do it in a separate useEffect
+        // Immediately start the first transition
+        console.log("Performing first transition cycle immediately (0 -> 1)...");
+        await advanceSlideAndAnimate(); 
 
-        // Set up animation cycle
-        console.log("Setting up animation cycle...");
-        setupAnimationCycle();
+        // Set up the regular animation cycle for subsequent slides
+        console.log("Setting up regular animation cycle for subsequent slides...");
+        setupAnimationCycle(); // Schedules 1 -> 2 and onwards
 
         setIsLoading(false);
         console.log("Slideshow initialization complete");
@@ -125,92 +215,17 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
 
     initializeSlideshow();
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Separate useEffect to render triangles after component mounts and data is loaded
-  useEffect(() => {
-    // Only proceed if loading is complete and SVG ref is available
-    if (
-      !isLoading &&
-      svgRef.current &&
-      loadedSlidesRef.current.has(currentSlideIndexRef.current)
-    ) {
-      console.log("Component mounted with SVG ref, rendering triangles...");
-      renderInitialTriangles();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoading]); // Only depend on isLoading and disable the exhaustive-deps warning
-
-  // Effect to handle pauseState changes
-  useEffect(() => {
-    if (isPaused) {
-      // Clear the animation timer when paused
-      if (animationTimerRef.current) {
-        clearInterval(animationTimerRef.current);
-        animationTimerRef.current = null;
-      }
-    } else {
-      // Restart the animation cycle when unpaused
-      if (!animationTimerRef.current) {
-        setupAnimationCycle();
-      }
-    }
-    
     return () => {
-      // Cleanup on unmount or when effect re-runs
+      // Cleanup timers on unmount
       if (animationTimerRef.current) {
         clearInterval(animationTimerRef.current);
+      }
+      if (postTransitionUpdateTimerRef.current) {
+        clearTimeout(postTransitionUpdateTimerRef.current);
       }
     };
-  }, [isPaused]);
-
-  // Load a slide and its transitions
-  const loadSlideData = async (slideIndex: number) => {
-    // Don't load if already loaded
-    if (loadedSlidesRef.current.has(slideIndex)) {
-      console.log(`Slide ${slideIndex} already loaded, skipping`);
-      return;
-    }
-
-    const manifest = manifestRef.current;
-    if (!manifest) {
-      console.error("Cannot load slide: Manifest not loaded");
-      return;
-    }
-
-    const slideInfo = manifest.slides.find((s) => s.index === slideIndex);
-    if (!slideInfo) {
-      console.error(`Slide ${slideIndex} not found in manifest`);
-      return;
-    }
-
-    try {
-      // Load the slide
-      console.log(`Loading slide ${slideIndex} from ${slideInfo.filename}...`);
-      const slide = await loadSlide(slideInfo.filename);
-      console.log(`Slide ${slideIndex} loaded:`, slide);
-      loadedSlidesRef.current.set(slideIndex, slide);
-
-      // Load all transitions for this slide
-      for (const transition of slideInfo.transitions) {
-        // Create a unique key for this transition
-        const transitionKey = `${slideIndex}_to_${transition.to}`;
-
-        // Load only if not already loaded
-        if (!loadedTransitionsRef.current.has(transitionKey)) {
-          console.log(
-            `Loading transition from ${slideIndex} to ${transition.to} from ${transition.filename}...`
-          );
-          const transitionData = await loadTransition(transition.filename);
-          console.log(`Transition ${transitionKey} loaded:`, transitionData);
-          loadedTransitionsRef.current.set(transitionKey, transitionData);
-        }
-      }
-    } catch (error) {
-      console.error(`Failed to load slide ${slideIndex}:`, error);
-    }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Runs once on mount
 
   // Render initial triangles once data is loaded
   const renderInitialTriangles = () => {
@@ -277,90 +292,6 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
     );
   };
 
-  // Set up animation cycle that doesn't cause re-renders
-  const setupAnimationCycle = () => {
-    if (animationTimerRef.current) {
-      clearInterval(animationTimerRef.current);
-    }
-
-    animationTimerRef.current = setInterval(async () => {
-      if (isPaused) return; 
-      
-      const currentIdx = currentSlideIndexRef.current;
-      const targetSlideIdx = nextSlideIndexRef.current; // Slide we are transitioning TO
-
-      const currentSlide = loadedSlidesRef.current.get(currentIdx);
-      let targetSlide = loadedSlidesRef.current.get(targetSlideIdx);
-
-      // Ensure target slide is loaded to get its colors. Preload if necessary.
-      if (!targetSlide) {
-        console.warn(`Target slide ${targetSlideIdx} not preloaded. Loading now...`);
-        await loadSlideData(targetSlideIdx);
-        targetSlide = loadedSlidesRef.current.get(targetSlideIdx); 
-      }
-
-      if (!currentSlide || !targetSlide) {
-        console.warn(
-          `Cannot animate: Current slide ${currentIdx} or target slide ${targetSlideIdx} not loaded after attempt.`
-        );
-        return; 
-      }
-
-      // --- Update dominant colors for the TARGET slide (before transition) --- 
-      if (manifestRef.current) {
-        const targetSlideInfo = manifestRef.current.slides.find(
-          (s) => s.index === targetSlideIdx
-        );
-        if (
-          targetSlideInfo &&
-          targetSlideInfo.dominant_colors &&
-          targetSlideInfo.dominant_colors.length > 0
-        ) {
-          onDominantColorsChange(targetSlideInfo.dominant_colors); 
-        }
-      }
-      // --- End color update ---
-
-      const transitionKey = `${currentIdx}_to_${targetSlideIdx}`;
-      const transition = loadedTransitionsRef.current.get(transitionKey);
-
-      if (transition) {
-        animateTransition(
-          transition,
-          currentSlide,
-          targetSlide 
-        );
-      } else {
-        console.warn(`No transition found for ${currentIdx} → ${targetSlideIdx}. Snapping content.`);
-        // If no transition, colors changed, now update slide name immediately.
-        updateSlideName(targetSlide.name); 
-      }
-
-      setTimeout(async () => {
-        if (isPaused) return; 
-        
-        currentSlideIndexRef.current = targetSlideIdx;
-        const newNextSlideIdx = getNextSlideIndex(targetSlideIdx);
-        nextSlideIndexRef.current = newNextSlideIdx;
-
-        // Update slide name for the slide we just transitioned TO (if not already updated due to no transition)
-        if (transition) { // Only if there was a transition, otherwise name updated above
-            updateSlideName(targetSlide.name);
-        }
-
-        if (!loadedSlidesRef.current.has(newNextSlideIdx)) {
-          await loadSlideData(newNextSlideIdx);
-        }
-      }, TRANSITION_DURATION * 1000);
-    }, (TRANSITION_DURATION + SLIDE_DISPLAY_DURATION) * 1000);
-
-    return () => {
-      if (animationTimerRef.current) {
-        clearInterval(animationTimerRef.current);
-      }
-    };
-  };
-
   // Function to animate the transition between slides
   const animateTransition = (
     transition: Transition,
@@ -370,6 +301,13 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
     if (!svgRef.current) {
       console.warn("Cannot animate: SVG ref not available");
       return;
+    }
+
+    // Signal that the first transition has started, if it hasn't already
+    if (onFirstTransitionStart && !hasFirstTransitionStartedRef.current) {
+      onFirstTransitionStart();
+      hasFirstTransitionStartedRef.current = true;
+      console.log("First transition started, callback invoked.");
     }
 
     const svg = svgRef.current;
@@ -457,6 +395,53 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
         );
       }
     });
+  };
+
+  // Load a slide and its transitions
+  const loadSlideData = async (slideIndex: number) => {
+    // Don't load if already loaded
+    if (loadedSlidesRef.current.has(slideIndex)) {
+      console.log(`Slide ${slideIndex} already loaded, skipping`);
+      return;
+    }
+
+    const manifest = manifestRef.current;
+    if (!manifest) {
+      console.error("Cannot load slide: Manifest not loaded");
+      return;
+    }
+
+    const slideInfo = manifest.slides.find((s) => s.index === slideIndex);
+    if (!slideInfo) {
+      console.error(`Slide ${slideIndex} not found in manifest`);
+      return;
+    }
+
+    try {
+      // Load the slide
+      console.log(`Loading slide ${slideIndex} from ${slideInfo.filename}...`);
+      const slide = await loadSlide(slideInfo.filename);
+      console.log(`Slide ${slideIndex} loaded:`, slide);
+      loadedSlidesRef.current.set(slideIndex, slide);
+
+      // Load all transitions for this slide
+      for (const transition of slideInfo.transitions) {
+        // Create a unique key for this transition
+        const transitionKey = `${slideIndex}_to_${transition.to}`;
+
+        // Load only if not already loaded
+        if (!loadedTransitionsRef.current.has(transitionKey)) {
+          console.log(
+            `Loading transition from ${slideIndex} to ${transition.to} from ${transition.filename}...`
+          );
+          const transitionData = await loadTransition(transition.filename);
+          console.log(`Transition ${transitionKey} loaded:`, transitionData);
+          loadedTransitionsRef.current.set(transitionKey, transitionData);
+        }
+      }
+    } catch (error) {
+      console.error(`Failed to load slide ${slideIndex}:`, error);
+    }
   };
 
   // Show loading or error state

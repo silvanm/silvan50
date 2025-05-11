@@ -1,8 +1,9 @@
 "use client"; // Add "use client" because of useState and useEffect
 
 import React, { useState, useEffect } from "react";
-import InfoDisplaySection from "../components/InfoDisplaySection"; // Updated import path and name
+import InfoDisplaySectionVertical from "../components/InfoDisplaySectionVertical"; // Updated import path and name
 import SlideshowDisplay from "../components/SlideshowDisplay"; // Adjusted path
+import InfoDisplaySectionHorizontal from "@/components/InfoDisplaySectionHorizontal";
 
 export default function Home() { // Renamed from App to Home and made default export
   const [isPortrait, setIsPortrait] = useState(
@@ -10,6 +11,7 @@ export default function Home() { // Renamed from App to Home and made default ex
   );
   // Ensure dominantColors state is defined ONLY ONCE
   const [dominantColors, setDominantColors] = useState<string[]>(["#000", "#000", "#000"]);
+  const [isColorTransitionEnabled, setIsColorTransitionEnabled] = useState(false); // New state for enabling color transition
 
   useEffect(() => {
     // Ensure window is defined (for client-side only execution)
@@ -35,13 +37,14 @@ export default function Home() { // Renamed from App to Home and made default ex
   }
 
   return (
-    <div className="w-screen h-screen overflow-hidden"> {/* Added overflow-hidden to prevent scrollbars from potential slight overflows */}
+    <div className={`w-screen h-screen overflow-hidden ${isColorTransitionEnabled ? "colortransition-enabled" : ""}`}> {/* Conditionally add class */}
       {isPortrait ? (
         // Portrait layout: InfoDisplaySection top, SlideshowDisplay bottom
         <div className="flex flex-col h-full">
           {/* InfoDisplaySection at the top (approx 1/3 height) */}
           <div className="h-[20%] w-full"> 
-            <InfoDisplaySection
+            <InfoDisplaySectionHorizontal
+            
               colors={dominantColors}
             />
           </div>
@@ -49,6 +52,7 @@ export default function Home() { // Renamed from App to Home and made default ex
           <div className="h-[80%] w-full">
             <SlideshowDisplay 
               onDominantColorsChange={(newColors) => setDominantColors(newColors)}
+              onFirstTransitionStart={() => setIsColorTransitionEnabled(true)} // Set state on first transition
             />
           </div>
         </div>
@@ -59,11 +63,12 @@ export default function Home() { // Renamed from App to Home and made default ex
           <div className="w-[66%] h-full">
             <SlideshowDisplay 
               onDominantColorsChange={(newColors) => setDominantColors(newColors)}
+              onFirstTransitionStart={() => setIsColorTransitionEnabled(true)} // Set state on first transition
             />            
           </div>
           {/* InfoDisplaySection on the right (approx 1/3 width) */}
           <div className="flex-1 min-w-[33%] h-full">
-            <InfoDisplaySection
+            <InfoDisplaySectionVertical
               colors={dominantColors}
             />
           </div>

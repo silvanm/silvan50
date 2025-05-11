@@ -31,3 +31,11 @@ body {
   border-radius: 4px;
   z-index: 10;
 }
+
+.colortransition-enabled .colortransition {
+  transition: color 5s ease-in-out, background-color 5s ease-in-out;
+}
+
+.colortransition-disabled .colortransition {
+  transition: none;
+}
