@@ -20,10 +20,9 @@ const PRELOAD_SLIDES = 2; // Number of slides to preload ahead
 
 interface SlideshowDisplayProps {
   onDominantColorsChange: (colors: string[]) => void;
-  onFirstTransitionStart?: () => void;
 }
 
-export default function Slideshow({ onDominantColorsChange, onFirstTransitionStart }: SlideshowDisplayProps) {
+export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const slideNameRef = useRef<HTMLDivElement>(null);
 
@@ -42,7 +41,6 @@ export default function Slideshow({ onDominantColorsChange, onFirstTransitionSta
   const loadedTransitionsRef = useRef<Map<string, Transition>>(new Map());
   const animationTimerRef = useRef<NodeJS.Timeout | null>(null); // For the main interval
   const postTransitionUpdateTimerRef = useRef<NodeJS.Timeout | null>(null); // For updates after a single transition
-  const hasFirstTransitionStartedRef = useRef(false);
 
   // Function to convert RGB array to CSS color string
   const rgbToString = (rgb: [number, number, number], opacity = 1) => {
@@ -113,7 +111,7 @@ export default function Slideshow({ onDominantColorsChange, onFirstTransitionSta
     const transition = loadedTransitionsRef.current.get(transitionKey);
 
     if (transition) {
-      animateTransition(transition, currentSlide, targetSlide); // This calls onFirstTransitionStart
+      animateTransition(transition, currentSlide, targetSlide);
     } else {
       console.warn(`No transition found for ${currentIdx} → ${targetSlideIdx}. Snapping content.`);
       updateSlideName(targetSlide.name); // Colors already changed, update name
@@ -303,13 +301,6 @@ export default function Slideshow({ onDominantColorsChange, onFirstTransitionSta
       return;
     }
 
-    // Signal that the first transition has started, if it hasn't already
-    if (onFirstTransitionStart && !hasFirstTransitionStartedRef.current) {
-      onFirstTransitionStart();
-      hasFirstTransitionStartedRef.current = true;
-      console.log("First transition started, callback invoked.");
-    }
-
     const svg = svgRef.current;
 
     // Create a GSAP timeline for the transition
@@ -471,7 +462,7 @@ export default function Slideshow({ onDominantColorsChange, onFirstTransitionSta
     >
       <svg
         ref={svgRef}
-        viewBox="0 0 1000 800"
+        viewBox="0 0 1000 1000"
         preserveAspectRatio="xMidYMid slice"
         className="w-full h-full absolute top-0 left-0 object-cover"
       />

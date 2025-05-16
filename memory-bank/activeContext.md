@@ -51,9 +51,26 @@
     * Will be building a new frontend with improved architecture and better transition support
     * New frontend will properly utilize the standardized triangle counts for smoother transitions
 
+8. **CLI Default Argument Changes (`create_slideshow.py`):**
+    * `--round-robin` and `--split` are now enabled by default. Use `--no-round-robin` and `--no-split` to disable.
+    * Input directory defaults to `images/`.
+    * Output directory defaults to `silvan50frontend/public/data/`.
+    * Points for triangulation (`--points`) defaults to `2000`.
+
+9. **Initial Black Slide Implementation (`create_slideshow.py`):**
+    * The script now automatically prepends a black slide named `"000_black_intro_slide"` as the first slide.
+    * This slide uses the geometry of the last processed image, with all colors (triangles and dominant color) set to black (`#000000`).
+    * This provides a fade-in effect for the slideshow.
+
+10. **Test Suite Adjustments:**
+    * Tests in `test_end_to_end.py` and `test_slideshow.py` were updated to align with:
+        * The new dictionary structure returned by image processing functions (includes `dominant_colors`).
+        * The new JSON serialization format where transitions are nested within each slide object.
+    * All tests are currently passing after these adjustments.
+
 **Next Steps:**
 
-* Build new frontend from scratch with support for the standardized triangle transitions
+* Build new frontend from scratch with support for the standardized triangle transitions, including the initial black slide.
 * Optimize the Hungarian algorithm for large triangle sets (currently limited by memory usage)
 * Consider adding support for more triangle processing options (edge detection methods, sampling algorithms)
 * Add more sophisticated triangle matching algorithms beyond centroid distance

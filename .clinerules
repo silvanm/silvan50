@@ -69,4 +69,14 @@
 - If no transitions are created, check that at least two images were successfully processed.
 - Frontend errors usually relate to missing or malformatted JSON files or paths.
 - If frontend transitions don't work, check for the existence of `combined_data.json`.
-- If frontend fails with `SyntaxError: Invalid regular expression flags`, ensure you're using Node.js v18 with `nvm use 18`. 
+- If frontend fails with `SyntaxError: Invalid regular expression flags`, ensure you're using Node.js v18 with `nvm use 18`.
+
+# Slideshow Generation and Structure
+
+- **JSON Serialization**: When saving slideshows or converting to dicts (`Slideshow.to_dict()`), transition data is now nested within each slide object under a `"transitions"` key. This key holds a list of transitions *originating from that slide*. There is no longer a top-level `"transitions"` array in the main manifest JSON file when using `save_slideshow_split` or in the output of `save_slideshow`.
+- **`create_slideshow.py` Default Behavior**:
+    - The script defaults to the following options: `--split` (output individual files), `--round-robin` (circular transitions), `--input-dir images/`, `--output-dir silvan50frontend/public/data/`, and `--points 2000`.
+    - To disable splitting or round-robin, use `--no-split` and `--no-round-robin` respectively.
+    - **Automatic Black Intro Slide**: `create_slideshow.py` *always* prepends a black slide as the first slide in the generated slideshow. This slide is named `"000_black_intro_slide"`. It uses the triangle geometry of the alphabetically last processed user image, but all its triangle colors and its dominant color(s) are set to black (`#000000`). This is intended to provide a fade-in effect.
+
+# Frontend Development Notes 

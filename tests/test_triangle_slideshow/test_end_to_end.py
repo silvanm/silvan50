@@ -220,16 +220,6 @@ class TestEndToEnd:
                     # The mock_convert saves image_0.json, image_1.json etc.
                     # The results from process_images uses these as keys.
 
-                    # The original test code had a slight mismatch here if process_images sorted differently
-                    # than the loop. Let's find the correct key based on image name.
-                    # For simplicity, assuming the order is preserved or we map it.
-                    # The test structure for results[output_filename] was already correct.
-
-                    # The original test code had a slight mismatch here if process_images sorted differently
-                    # than the loop. Let's find the correct key based on image name.
-                    # For simplicity, assuming the order is preserved or we map it.
-                    # The test structure for results[output_filename] was already correct.
-
                     output_filename = (
                         f"image_{i}.json"  # This matches the mocked output file name
                     )
@@ -240,7 +230,7 @@ class TestEndToEnd:
                     assert results[output_filename]["triangles"] == triangles_list
                     # Also check dominant_colors if it's consistent from the mock (it's a placeholder)
                     assert (
-                        results[output_filename]["dominant_colors"] == ["#FFFFFF"] * 3
+                        results[output_filename]["dominant_colors"] == ["#FFFFFF"] * 5
                     )
 
                 # Create a slideshow from the results

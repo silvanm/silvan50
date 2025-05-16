@@ -31,6 +31,7 @@
 
 *   **Modular Package:** Code organized into `triangle_slideshow` Python package with specialized modules.
 *   **Entry Point:** `create_slideshow.py` provides a unified CLI for all functionality.
+    *   **Default Behavior:** By default, processes images from `./images/`, outputs to `./silvan50frontend/public/data/`, uses `2000` points for triangulation, enables round-robin transitions, and splits the slideshow into individual files. These can be overridden by respective CLI arguments (e.g., `--no-round-robin`, `--no-split`, `--input-dir`, etc.).
 *   **Core Components:**
     * `processor.py`: Handles image processing with triangler
     * `transition.py`: Manages transition creation using the Hungarian algorithm
@@ -40,11 +41,12 @@
 **Data Flow:**
 
 1. Input images from a directory are processed by `triangle_slideshow.processor` module
-2. Triangle representations are generated for each image
-3. The `Slideshow` class from `slideshow.py` manages the collection of slides
-4. Triangle standardization ensures all slides have the same number of triangles
-5. Transitions between slides are created using the Hungarian algorithm from `transition.py`
-6. The complete slideshow with transitions is serialized to JSON format
+2. Triangle representations are generated for each image.
+3. **Initial Black Slide**: Before user images are added, an initial black slide (`"000_black_intro_slide"`) is created. It uses the triangle geometry of the alphabetically last processed user image, but all its triangle colors and dominant color(s) are set to black (`#000000`). This slide is always the first (index 0) in the sequence.
+4. The `Slideshow` class from `slideshow.py` manages the collection of slides, including the prepended black slide and then the user image slides.
+5. Triangle standardization ensures all slides have the same number of triangles.
+6. Transitions between slides are created using the Hungarian algorithm from `transition.py`.
+7. The complete slideshow with transitions is serialized to JSON format (manifest file and individual slide/transition files if split).
 
 **Triangle Standardization:**
 
@@ -73,10 +75,11 @@
 **Slideshow Data Model:**
 
 *   Core `Slideshow` class maintains:
-    * List of slides (each with triangles and metadata)
-    * List of transitions (each with source, target, and pairings)
-*   Methods for adding slides, creating transitions, and serialization
-*   Support for both manual transition creation and automatic patterns
+    * List of slides (each with triangles and metadata, including dominant colors).
+    * List of transitions (each with source, target, and pairings) *in memory*.
+*   Methods for adding slides, creating transitions, and serialization.
+*   **Serialization (`to_dict`, `save_slideshow`, `save_slideshow_split`):** When serialized to a dictionary or JSON files (especially the main manifest if split), transition information is nested within each slide object under a `"transitions"` key. This key holds a list of transitions *originating from that slide*. There is no top-level `"transitions"` array in the output JSON manifest.
+*   Support for both manual transition creation and automatic patterns.
 *   Each transition contains pairings that map source triangles to target triangles
 *   Triangles may include opacity value (1.0 for normal, 0.0 for dummy triangles)
 

@@ -11,7 +11,6 @@ export default function Home() { // Renamed from App to Home and made default ex
   );
   // Ensure dominantColors state is defined ONLY ONCE
   const [dominantColors, setDominantColors] = useState<string[]>(["#000", "#000", "#000"]);
-  const [isColorTransitionEnabled, setIsColorTransitionEnabled] = useState(false); // New state for enabling color transition
 
   useEffect(() => {
     // Ensure window is defined (for client-side only execution)
@@ -37,7 +36,7 @@ export default function Home() { // Renamed from App to Home and made default ex
   }
 
   return (
-    <div className={`w-screen h-screen overflow-hidden ${isColorTransitionEnabled ? "colortransition-enabled" : ""}`}> {/* Conditionally add class */}
+    <div className="w-screen h-screen overflow-hidden"> {/* REVERTED: Removed conditional class */}
       {isPortrait ? (
         // Portrait layout: InfoDisplaySection top, SlideshowDisplay bottom
         <div className="flex flex-col h-full">
@@ -52,7 +51,6 @@ export default function Home() { // Renamed from App to Home and made default ex
           <div className="h-[80%] w-full">
             <SlideshowDisplay 
               onDominantColorsChange={(newColors) => setDominantColors(newColors)}
-              onFirstTransitionStart={() => setIsColorTransitionEnabled(true)} // Set state on first transition
             />
           </div>
         </div>
@@ -63,7 +61,6 @@ export default function Home() { // Renamed from App to Home and made default ex
           <div className="w-[66%] h-full">
             <SlideshowDisplay 
               onDominantColorsChange={(newColors) => setDominantColors(newColors)}
-              onFirstTransitionStart={() => setIsColorTransitionEnabled(true)} // Set state on first transition
             />            
           </div>
           {/* InfoDisplaySection on the right (approx 1/3 width) */}

@@ -24,4 +24,14 @@
 **User Experience:**
 
 *   **Backend:** Users run the Python tool with `--format json` to generate data.
-*   **Frontend:** Users run `npm run dev` in the `frontend` directory and open the provided URL in a browser to see an interactive 3D representation of the triangulated image. They can orbit the camera and use debug controls. 
+*   **Frontend:** Users run `npm run dev` in the `frontend` directory and open the provided URL in a browser to see an interactive 3D representation of the triangulated image. They can orbit the camera and use debug controls.
+
+## User Experience Goals
+
+*   **Smooth Visual Flow:** Transitions between slides should be visually appealing and not jarring.
+*   **Customizable Output:** Users should be able to control key aspects of the slideshow generation.
+*   **Ease of Use:** The tool should be relatively straightforward to use for its target technical audience.
+*   **Clear Feedback:** The script should provide informative output about its progress and any errors.
+*   **Graceful Fade-In:** The slideshow should start with a black screen and fade into the first image for a polished effect.
+
+## Non-Goals 
