@@ -34,6 +34,7 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPaused, setIsPaused] = useState(false);
+  const [svgReady, setSvgReady] = useState(false); // Track if SVG is ready
   
   // Use a ref for the pause state to avoid closure issues in intervals
   const isPausedRef = useRef(false);
@@ -285,16 +286,39 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
           }
         }
         
-        console.log("Rendering initial triangles for slide 0...");
-        renderInitialTriangles(); // Display slide 0
-
-        // Immediately start the first transition
-        console.log("Performing first transition cycle immediately (0 -> 1)...");
-        await advanceSlideAndAnimate(); 
-
-        // Set up the regular animation cycle for subsequent slides
-        console.log("Setting up regular animation cycle for subsequent slides...");
-        setupAnimationCycle(); // Schedules 1 -> 2 and onwards
+        // Wait for SVG to be ready
+        const maxRetries = 10;
+        let retries = 0;
+        const waitForSvg = () => {
+          if (svgRef.current) {
+            console.log("SVG element is ready, rendering initial triangles...");
+            setSvgReady(true);
+            renderInitialTriangles(); // Display slide 0
+            
+            // Only proceed with transitions after successfully rendering triangles
+            if (svgRef.current.childNodes.length > 0) {
+              console.log("Performing first transition cycle immediately (0 -> 1)...");
+              advanceSlideAndAnimate().then(() => {
+                // Set up the regular animation cycle for subsequent slides
+                console.log("Setting up regular animation cycle for subsequent slides...");
+                setupAnimationCycle(); // Schedules 1 -> 2 and onwards
+              });
+            } else {
+              console.error("Failed to render triangles, SVG is empty after render attempt");
+              setErrorMessage("Failed to render slideshow triangles");
+            }
+          } else if (retries < maxRetries) {
+            retries++;
+            console.log(`SVG not ready, retrying (${retries}/${maxRetries})...`);
+            setTimeout(waitForSvg, 100); // Try again after 100ms
+          } else {
+            console.error("SVG element not available after maximum retries");
+            setErrorMessage("Failed to initialize slideshow display");
+          }
+        };
+        
+        // Start waiting for SVG
+        waitForSvg();
 
         setIsLoading(false);
         console.log("Slideshow initialization complete");
@@ -333,7 +357,7 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
       console.error(
         "Cannot render triangles: SVG ref not available. This might happen if the component is not fully mounted."
       );
-      return;
+      return false; // Return false to indicate failure
     }
 
     const currentSlideIndex = currentSlideIndexRef.current;
@@ -349,7 +373,7 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
         "Available slides:",
         Array.from(loadedSlidesRef.current.keys())
       );
-      return;
+      return false; // Return false to indicate failure
     }
 
     console.log(
@@ -388,6 +412,8 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
     console.log(
       `Rendered ${currentSlide.triangles.length} triangles for slide "${currentSlide.name}"`
     );
+    
+    return svg.childNodes.length > 0; // Return true if triangles were added
   };
 
   // Function to animate the transition between slides
@@ -561,7 +587,12 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
       className="slideshow-container w-full h-full overflow-hidden relative bg-black"
     >
       <svg
-        ref={svgRef}
+        ref={(node) => {
+          svgRef.current = node;
+          if (node && !svgReady) {
+            console.log("SVG element mounted");
+          }
+        }}
         viewBox="0 0 1000 1000"
         preserveAspectRatio="xMidYMid slice"
         className="w-full h-full absolute top-0 left-0 object-cover"
