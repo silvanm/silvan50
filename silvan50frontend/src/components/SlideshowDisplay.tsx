@@ -34,6 +34,9 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPaused, setIsPaused] = useState(false);
+  
+  // Use a ref for the pause state to avoid closure issues in intervals
+  const isPausedRef = useRef(false);
   const wasManuallyPausedRef = useRef(false); // Added to track if pause was user-initiated
 
   const manifestRef = useRef<SlideshowManifest | null>(null);
@@ -41,6 +44,28 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
   const loadedTransitionsRef = useRef<Map<string, Transition>>(new Map());
   const animationTimerRef = useRef<NodeJS.Timeout | null>(null); // For the main interval
   const postTransitionUpdateTimerRef = useRef<NodeJS.Timeout | null>(null); // For updates after a single transition
+
+  // Sync state with ref
+  useEffect(() => {
+    console.log(`[State] isPaused state changed to: ${isPaused}`);
+    isPausedRef.current = isPaused;
+    
+    // Handle animation timer based on pause state
+    if (isPaused) {
+      // If paused, clear any existing timer
+      if (animationTimerRef.current) {
+        console.log("[State] Clearing animation timer because slideshow is paused");
+        clearInterval(animationTimerRef.current);
+        animationTimerRef.current = null;
+      }
+    } else {
+      // If unpaused and no timer is running, start one
+      if (!animationTimerRef.current) {
+        console.log("[State] Starting animation timer because slideshow is unpaused");
+        setupAnimationCycle();
+      }
+    }
+  }, [isPaused]);
 
   // Function to convert RGB array to CSS color string
   const rgbToString = (rgb: [number, number, number], opacity = 1) => {
@@ -63,18 +88,30 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
 
   // Toggle pause state
   const togglePause = () => {
+    console.log(`[Pause] Button clicked - current pause state: ${isPaused}`);
     const newPauseState = !isPaused;
-    wasManuallyPausedRef.current = newPauseState; // Update based on new state before setting it
+    
+    // Update manual pause flag
+    wasManuallyPausedRef.current = newPauseState;
+    console.log(`[Pause] Manually ${newPauseState ? 'pausing' : 'resuming'} slideshow (wasManuallyPaused: ${wasManuallyPausedRef.current})`);
+    
+    // Update state - the effect will handle timer management
     setIsPaused(newPauseState);
   };
-
+  
   // Core logic for one transition cycle
   const advanceSlideAndAnimate = async () => {
-    // If this function can be called when isPaused is true from an external source,
-    // add a check: if (isPaused) return;
+    console.log(`[Advance] Starting advance, isPaused: ${isPausedRef.current}`);
+    
+    // Double-check pause state using ref to avoid closure issues
+    if (isPausedRef.current) {
+      console.log("[Advance] Cancelled - slideshow is paused");
+      return;
+    }
 
     const currentIdx = currentSlideIndexRef.current;
     const targetSlideIdx = nextSlideIndexRef.current;
+    console.log(`[Advance] Advancing from slide ${currentIdx} to ${targetSlideIdx}`);
 
     const currentSlide = loadedSlidesRef.current.get(currentIdx);
     let targetSlide = loadedSlidesRef.current.get(targetSlideIdx);
@@ -124,6 +161,14 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
 
     // This timeout is for tasks after the transition animation finishes
     postTransitionUpdateTimerRef.current = setTimeout(async () => {
+      // Check pause state again
+      if (isPausedRef.current) {
+        console.log("[PostTransition] Skipping post-transition update because slideshow is paused");
+        postTransitionUpdateTimerRef.current = null;
+        return;
+      }
+      
+      console.log(`[PostTransition] Completing transition from ${currentSlideIndexRef.current} to ${targetSlideIdx}`);
       currentSlideIndexRef.current = targetSlideIdx;
       const newNextSlideIdx = getNextSlideIndex(targetSlideIdx);
       nextSlideIndexRef.current = newNextSlideIdx;
@@ -144,14 +189,67 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
   
   // Set up the recurring animation cycle
   const setupAnimationCycle = () => {
+    console.log("[Animation] Setting up animation cycle");
+    
+    // Clear any existing interval
     if (animationTimerRef.current) {
+      console.log("[Animation] Clearing existing animation interval");
       clearInterval(animationTimerRef.current);
+      animationTimerRef.current = null;
     }
+    
+    // Create new interval
+    console.log("[Animation] Creating new animation interval");
     animationTimerRef.current = setInterval(async () => {
-      if (isPaused) return; // Check current pause state
+      console.log(`[Animation] Interval triggered - isPausedRef: ${isPausedRef.current}`);
+      
+      // Always check the ref value, not the state value
+      if (isPausedRef.current) {
+        console.log("[Animation] Animation skipped - slideshow is paused");
+        return;
+      }
+      
+      console.log("[Animation] Advancing slide and animating");
       await advanceSlideAndAnimate();
     }, (TRANSITION_DURATION + SLIDE_DISPLAY_DURATION) * 1000);
   };
+
+  // Handle page visibility changes
+  useEffect(() => {
+    console.log("[Visibility] Setting up visibility change handler");
+    
+    const handleVisibilityChange = () => {
+      console.log(`[Visibility] Document visibility changed: ${document.hidden ? 'hidden' : 'visible'}`);
+      console.log(`[Visibility] Was manually paused: ${wasManuallyPausedRef.current}`);
+      
+      if (document.hidden) {
+        // Page is not visible - pause slideshow to save resources
+        console.log("[Visibility] Page hidden - pausing slideshow");
+        
+        // Remember previous state only if we weren't already paused
+        if (!isPausedRef.current) {
+          wasManuallyPausedRef.current = false; // This wasn't a manual pause
+        }
+        
+        setIsPaused(true);
+      } else if (!wasManuallyPausedRef.current) {
+        // Page is visible again - resume slideshow only if it wasn't manually paused
+        console.log("[Visibility] Page visible again - resuming slideshow (not manually paused)");
+        setIsPaused(false);
+      } else {
+        console.log("[Visibility] Page visible again - keeping slideshow paused (was manually paused)");
+      }
+    };
+
+    // Add event listener for visibility changes
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    // Clean up event listener on unmount
+    return () => {
+      console.log("[Visibility] Cleaning up visibility change handler");
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
 
   // Load the initial manifest and first slide
   useEffect(() => {
@@ -217,9 +315,11 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
       // Cleanup timers on unmount
       if (animationTimerRef.current) {
         clearInterval(animationTimerRef.current);
+        animationTimerRef.current = null;
       }
       if (postTransitionUpdateTimerRef.current) {
         clearTimeout(postTransitionUpdateTimerRef.current);
+        postTransitionUpdateTimerRef.current = null;
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -477,11 +577,18 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
         <button
           onClick={togglePause}
           className={`font-bold text-white border-none py-2 px-4 rounded cursor-pointer ${isPaused ? "bg-green-500" : "bg-red-500"}`}
+          style={{ cursor: 'pointer' }}
         >
           {isPaused ? "Play" : "Pause"}
         </button>
         <div className="text-white text-xs">
           Current Slide: {currentSlideIndexRef.current}
+        </div>
+        <div className="text-white text-xs">
+          Paused: {isPaused ? "Yes" : "No"}
+        </div>
+        <div className="text-white text-xs">
+          Manual Pause: {wasManuallyPausedRef.current ? "Yes" : "No"}
         </div>
       </div>
     </div>
