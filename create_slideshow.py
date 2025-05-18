@@ -10,6 +10,7 @@ import os
 import sys
 from pathlib import Path
 import copy  # Added for deep copying slide data
+import shutil  # Added for copying image files
 
 from triangle_slideshow.processor import process_images
 from triangle_slideshow.slideshow import Slideshow, save_slideshow, save_slideshow_split
@@ -44,7 +45,7 @@ def main():
         "--points",
         "-p",
         type=int,
-        default=2000,
+        default=1000,
         help="Number of points for triangulation (default: 2000)",
     )
 
@@ -85,6 +86,14 @@ def main():
         help="Disable splitting slideshow into individual files",
     )
 
+    parser.add_argument(
+        "--copy-images",
+        action="store_true",
+        dest="copy_images",
+        default=True,
+        help="Copy original images to output directory (default: True)",
+    )
+
     args = parser.parse_args()
 
     # Process input args
@@ -114,6 +123,8 @@ def main():
     print(f"Using {args.points} points for triangulation")
     print(f"Max triangles for transitions: {args.max_triangles}")
     print(f"Cropping images to {sq_size}x{sq_size} squares")
+    if args.copy_images:
+        print("Will copy original images to output directory")
     if args.split:
         print("Will split slideshow into individual files")
     if args.round_robin:
@@ -133,6 +144,41 @@ def main():
     if not triangle_dict:
         print("No images processed successfully. Cannot create initial black slide.")
         return 1
+
+    # Copy original images to output directory if requested
+    image_files = {}
+    if args.copy_images:
+        images_output_dir = output_dir / "images"
+        os.makedirs(images_output_dir, exist_ok=True)
+        print(f"Copying original images to {images_output_dir}")
+
+        # Keys in triangle_dict are the original image filenames
+        # Need to iterate through the original image files, not the json files
+        image_extensions = extensions
+        for filename in triangle_dict.keys():
+            # Get the base name without extension to try each possible extension
+            base_name = Path(filename).stem
+            found = False
+
+            # Try to locate the original file with the correct extension
+            for ext in image_extensions:
+                original_path = input_dir / f"{base_name}.{ext}"
+                if original_path.exists():
+                    # Found the image file with this extension
+                    base_filename = f"{base_name}.{ext}"
+                    output_path = images_output_dir / base_filename
+
+                    # Copy the file
+                    shutil.copy2(original_path, output_path)
+
+                    # Store reference to the copied image (relative path from base output_dir)
+                    image_files[filename] = f"images/{base_filename}"
+                    print(f"Copied {original_path} to {output_path}")
+                    found = True
+                    break
+
+            if not found:
+                print(f"Warning: Could not find original image for {filename}")
 
     # Create slideshow
     slideshow = Slideshow()
@@ -223,7 +269,10 @@ def main():
     for filename in sorted(triangle_dict.keys()):
         slide_name = Path(filename).stem
         triangles = triangle_dict[filename]
-        slideshow.add_slide(triangles, name=slide_name)
+
+        # Add image file reference if available
+        image_path = image_files.get(filename, None)
+        slideshow.add_slide(triangles, name=slide_name, image_path=image_path)
 
     print(f"Created slideshow with {len(slideshow.slides)} slides")
 

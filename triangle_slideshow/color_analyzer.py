@@ -89,7 +89,7 @@ def reorder_colors(hex_colors):
     ]
 
     # Add any remaining colors (darkest first, then others)
-    for i in range(1, len(remaining_colors)):
+    for i in range(len(remaining_colors) - 1, 0, -1):
         result.append(remaining_colors[i]["hex"])
 
     return result

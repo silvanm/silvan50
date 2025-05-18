@@ -17,6 +17,7 @@ const TRANSITION_DURATION = 5; // seconds
 const SLIDE_DISPLAY_DURATION = 7; // seconds to display each slide before transitioning
 const MAX_TRIANGLE_DELAY = 4; // maximum delay in seconds for triangle animations based on position
 const PRELOAD_SLIDES = 2; // Number of slides to preload ahead
+const THUMBNAIL_SIZE = 50; // Size of the thumbnail in pixels
 
 interface SlideshowDisplayProps {
   onDominantColorsChange: (colors: string[]) => void;
@@ -35,6 +36,11 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPaused, setIsPaused] = useState(false);
   const [svgReady, setSvgReady] = useState(false); // Track if SVG is ready
+  const [isDebugMode, setIsDebugMode] = useState(false); // Track debug mode
+  
+  // Added for thumbnail functionality
+  const [currentImagePath, setCurrentImagePath] = useState<string | null>(null);
+  const [isImageExpanded, setIsImageExpanded] = useState(false);
   
   // Use a ref for the pause state to avoid closure issues in intervals
   const isPausedRef = useRef(false);
@@ -100,6 +106,25 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
     setIsPaused(newPauseState);
   };
   
+  // Function to update the current image path for the thumbnail
+  const updateCurrentImagePath = (slideIndex: number) => {
+    const manifest = manifestRef.current;
+    if (!manifest) return;
+
+    const slideInfo = manifest.slides.find(s => s.index === slideIndex);
+    if (slideInfo && slideInfo.image_path) {
+      setCurrentImagePath(slideInfo.image_path);
+    } else {
+      // Try to get the image path from the loaded slide
+      const slide = loadedSlidesRef.current.get(slideIndex);
+      if (slide && slide.image_path) {
+        setCurrentImagePath(slide.image_path);
+      } else {
+        setCurrentImagePath(null);
+      }
+    }
+  };
+
   // Core logic for one transition cycle
   const advanceSlideAndAnimate = async () => {
     console.log(`[Advance] Starting advance, isPaused: ${isPausedRef.current}`);
@@ -130,6 +155,9 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
       // Potentially try to recover or stop the slideshow
       return;
     }
+
+    // Update thumbnail image path for the TARGET slide
+    updateCurrentImagePath(targetSlideIdx);
 
     // Update dominant colors for the TARGET slide (before transition)
     if (manifestRef.current) {
@@ -268,6 +296,11 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
           return;
         }
 
+        // Set initial image path if available
+        if (manifest.slides[0].image_path) {
+          setCurrentImagePath(manifest.slides[0].image_path);
+        }
+
         if (
           manifest.slides[0].dominant_colors &&
           manifest.slides[0].dominant_colors.length > 0
@@ -276,6 +309,14 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
         }
 
         await loadSlideData(0); // Load slide 0
+        
+        // After loading slide data, check for image path if not found in manifest
+        if (!manifest.slides[0].image_path) {
+          const slide0 = loadedSlidesRef.current.get(0);
+          if (slide0 && slide0.image_path) {
+            setCurrentImagePath(slide0.image_path);
+          }
+        }
 
         // Preload the next few slides (e.g., slide 1 for the first immediate transition)
         for (let i = 1; i <= PRELOAD_SLIDES; i++) {
@@ -348,6 +389,14 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Runs once on mount
+
+  // Check for debug mode on component mount
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const debug = urlParams.get('debug');
+    setIsDebugMode(debug === '1');
+    console.log(`Debug mode: ${debug === '1' ? 'enabled' : 'disabled'}`);
+  }, []);
 
   // Render initial triangles once data is loaded
   const renderInitialTriangles = () => {
@@ -596,32 +645,78 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
         viewBox="0 0 1000 1000"
         preserveAspectRatio="xMidYMid slice"
         className="w-full h-full absolute top-0 left-0 object-cover"
+        style={{ transform: 'scaleX(-1)' }}
       />
       <div
         ref={slideNameRef}
-        className="slide-name absolute bottom-8 left-8 z-10 text-white"
+        className="slide-name absolute bottom-8 left-8 z-10 text-white hidden"
       ></div>
-      {/* Debug Panel */}
-      <div
-        className="debug-panel absolute bottom-8 right-8 z-20 bg-black bg-opacity-70 p-2 rounded-lg flex flex-col gap-2"
-      >
-        <button
-          onClick={togglePause}
-          className={`font-bold text-white border-none py-2 px-4 rounded cursor-pointer ${isPaused ? "bg-green-500" : "bg-red-500"}`}
-          style={{ cursor: 'pointer' }}
+      
+      {/* Thumbnail container */}
+      {currentImagePath && (
+        <div className="thumbnail-container absolute bottom-4 left-4 z-20">
+          <div 
+            className="thumbnail cursor-pointer border-2 border-white shadow-lg overflow-hidden transition-all"
+            style={{ width: THUMBNAIL_SIZE, height: THUMBNAIL_SIZE }}
+            onClick={() => setIsImageExpanded(true)}
+          >
+            <img 
+              src={`/data/${currentImagePath}`} 
+              alt="Original" 
+              className="w-full h-full object-cover"
+            />
+          </div>
+        </div>
+      )}
+      
+      {/* Expanded image modal */}
+      {isImageExpanded && currentImagePath && (
+        <div 
+          className="expanded-image-container fixed inset-0 z-50 flex items-center justify-center"
+          onClick={() => setIsImageExpanded(false)}
         >
-          {isPaused ? "Play" : "Pause"}
-        </button>
-        <div className="text-white text-xs">
-          Current Slide: {currentSlideIndexRef.current}
+          <div className="relative max-w-4xl max-h-4xl p-4">
+            <img 
+              src={`/data/${currentImagePath}`} 
+              alt="Original" 
+              className="max-w-full max-h-[80vh] object-contain"
+            />
+            <button 
+              className="absolute top-4 right-4 bg-white text-black w-8 h-8 rounded-full flex items-center justify-center"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsImageExpanded(false);
+              }}
+            >
+              ✕
+            </button>
+          </div>
         </div>
-        <div className="text-white text-xs">
-          Paused: {isPaused ? "Yes" : "No"}
+      )}
+      
+      {/* Debug Panel - only show if debug=1 is in URL */}
+      {isDebugMode && (
+        <div
+          className="debug-panel absolute bottom-8 right-8 z-20 bg-black bg-opacity-70 p-2 rounded-lg flex flex-col gap-2"
+        >
+          <button
+            onClick={togglePause}
+            className={`font-bold text-white border-none py-2 px-4 rounded cursor-pointer ${isPaused ? "bg-green-500" : "bg-red-500"}`}
+            style={{ cursor: 'pointer' }}
+          >
+            {isPaused ? "Play" : "Pause"}
+          </button>
+          <div className="text-white text-xs">
+            Current Slide: {currentSlideIndexRef.current}
+          </div>
+          <div className="text-white text-xs">
+            Paused: {isPaused ? "Yes" : "No"}
+          </div>
+          <div className="text-white text-xs">
+            Manual Pause: {wasManuallyPausedRef.current ? "Yes" : "No"}
+          </div>
         </div>
-        <div className="text-white text-xs">
-          Manual Pause: {wasManuallyPausedRef.current ? "Yes" : "No"}
-        </div>
-      </div>
+      )}
     </div>
   );
 }

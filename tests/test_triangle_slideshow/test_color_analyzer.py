@@ -114,15 +114,15 @@ class TestColorReordering:
     def test_reorder_colors_black_blue_white(self):
         """Test the specific case of black, blue, and white."""
         # Original example case from our manual test
-        colors = ["#000000", "#0000ff", "#ffffff"]
+        colors = ["#000000", "#0000ff", "#ffffff", "#111111"]
 
         # The expected result based on our manual testing of the final implementation
-        expected = ["#ffffff", "#0000ff", "#000000"]
+        expected = ["#ffffff", "#0000ff", "#000000", "#111111"]
         result = reorder_colors(colors)
         assert result == expected
 
         # Test with different order input - should get same result
-        colors = ["#ffffff", "#000000", "#0000ff"]
+        colors = ["#ffffff", "#000000", "#0000ff", "#111111"]
         result = reorder_colors(colors)
         assert result == expected
 

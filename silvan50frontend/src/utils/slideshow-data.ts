@@ -7,6 +7,7 @@ export interface Triangle {
 export interface Slide {
   triangles: Triangle[];
   name: string;
+  image_path?: string;
 }
 
 export interface Pairing {
@@ -32,6 +33,7 @@ export interface ManifestSlide {
   filename: string;
   dominant_colors: string[];
   transitions: SlideTransition[];
+  image_path?: string;
 }
 
 export interface SlideshowManifest {
