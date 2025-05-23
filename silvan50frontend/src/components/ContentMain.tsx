@@ -13,7 +13,7 @@ const ContentMain: React.FC<ContentSectionProps> = ({
       className={`main-content font-bold colortransition ${onClick ? 'cursor-pointer' : ''} ${!isActive ? 'collapsed' : ''}`}
       onClick={onClick}
     >
-      <div className="content-header py-1">
+      <div className="content-header">
         Einladung<span className="hide-when-collapsed">&nbsp;zu</span>
       </div>
       
@@ -21,7 +21,7 @@ const ContentMain: React.FC<ContentSectionProps> = ({
         ref={contentRef}
         className={`content-body ${!isActive ? 'collapsed' : ''}`}
         style={{
-          maxHeight: isActive ? '100vh' : '0', // Use a very large value when active
+          maxHeight: isActive ? '100dvh' : '0', // Use a very large value when active
         }}
       >
         <h1 

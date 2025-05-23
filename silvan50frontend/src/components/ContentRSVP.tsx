@@ -2,15 +2,7 @@ import React, { useRef, useState } from "react";
 import { ContentSectionProps } from "../types/DisplayTypes";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "./ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -19,9 +11,7 @@ import { saveRSVP } from "../utils/airtable";
 // Define form schema
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name muss mindestens 2 Zeichen lang sein" }),
-  attending: z.enum(["yes", "no", "maybe"], {
-    required_error: "Bitte wähle eine Option",
-  }),
+  attending: z.enum(["yes", "no", "maybe"]),
   guestCount: z.coerce.number().min(1).max(10),
   dietaryRestrictions: z.string().optional(),
 });
@@ -39,7 +29,7 @@ const ContentRSVP: React.FC<ContentSectionProps> = ({ isActive, onClick }) => {
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
-      attending: "maybe",
+      attending: "yes", // Default to 'yes' since we're removing the option
       guestCount: 1,
       dietaryRestrictions: "",
     },
@@ -101,7 +91,7 @@ const ContentRSVP: React.FC<ContentSectionProps> = ({ isActive, onClick }) => {
         ref={contentRef}
         className={`content-body ${!isActive ? "collapsed" : ""}`}
         style={{
-          maxHeight: isActive ? "100vh" : "0", // Use a very large value when active
+          maxHeight: isActive ? "100dvh" : "0", // Use a very large value when active
         }}
       >
         <div className="py-2">
@@ -145,49 +135,19 @@ const ContentRSVP: React.FC<ContentSectionProps> = ({ isActive, onClick }) => {
                     render={({ field }) => (
                       <FormItem className="space-y-1">
                         <FormControl>
-                          <Input placeholder="Dein Name" {...field} />
+                          <Input placeholder="Dein Name" {...field} className="bg-white" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-
+                  
+                  {/* Hidden field for attending */}
                   <FormField
                     control={form.control}
                     name="attending"
                     render={({ field }) => (
-                      <FormItem className="space-y-1">
-                        <FormLabel className="text-sm">Wirst du teilnehmen?</FormLabel>
-                        <FormControl>
-                          <RadioGroup
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
-                            className="flex space-x-4"
-                          >
-                            <FormItem className="flex items-center space-x-1">
-                              <FormControl>
-                                <RadioGroupItem value="yes" />
-                              </FormControl>
-                              <FormLabel className="font-normal text-sm">Ja</FormLabel>
-                            </FormItem>
-                            <FormItem className="flex items-center space-x-1">
-                              <FormControl>
-                                <RadioGroupItem value="no" />
-                              </FormControl>
-                              <FormLabel className="font-normal text-sm">Nein</FormLabel>
-                            </FormItem>
-                            <FormItem className="flex items-center space-x-1">
-                              <FormControl>
-                                <RadioGroupItem value="maybe" />
-                              </FormControl>
-                              <FormLabel className="font-normal text-sm">
-                                Vielleicht
-                              </FormLabel>
-                            </FormItem>
-                          </RadioGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
+                      <input type="hidden" {...field} />
                     )}
                   />
                   
@@ -196,7 +156,7 @@ const ContentRSVP: React.FC<ContentSectionProps> = ({ isActive, onClick }) => {
                       control={form.control}
                       name="guestCount"
                       render={({ field }) => (
-                        <FormItem className="space-y-1">
+                        <FormItem className="">
                           <FormLabel className="text-sm">Gäste</FormLabel>
                           <FormControl>
                             <Input
@@ -207,6 +167,7 @@ const ContentRSVP: React.FC<ContentSectionProps> = ({ isActive, onClick }) => {
                               onChange={(e) =>
                                 field.onChange(e.target.valueAsNumber)
                               }
+                              className="bg-white"
                             />
                           </FormControl>
                           <FormMessage />
@@ -218,12 +179,13 @@ const ContentRSVP: React.FC<ContentSectionProps> = ({ isActive, onClick }) => {
                       control={form.control}
                       name="dietaryRestrictions"
                       render={({ field }) => (
-                        <FormItem className="space-y-1">
+                        <FormItem className="">
                           <FormLabel className="text-sm">Ernährungsbedürfnisse</FormLabel>
                           <FormControl>
                             <Input
                               placeholder="Einschränkungen?"
                               {...field}
+                              className="bg-white"
                             />
                           </FormControl>
                           <FormMessage />

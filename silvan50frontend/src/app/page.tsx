@@ -7,7 +7,7 @@ import Link from "next/link";
 
 export default function Home() {
   const [isPortrait, setIsPortrait] = useState(
-    () => typeof window !== "undefined" && window.innerHeight > window.innerWidth // Added window check for SSR
+    () => typeof window !== "undefined" && (640 > window.innerWidth) // Added window check for SSR
   );
   
   // Initialize color state with black.
@@ -27,7 +27,7 @@ export default function Home() {
     }
 
     const handleResize = () => {
-      setIsPortrait(window.innerHeight > window.innerWidth);
+      setIsPortrait(640 > window.innerWidth);
     };
 
     window.addEventListener("resize", handleResize);
@@ -65,7 +65,7 @@ export default function Home() {
   }
 
   return (
-    <div className="w-screen h-screen overflow-hidden">
+    <div className="w-screen h-[100dvh] overflow-hidden">
       {/* Admin navigation - only show in debug mode */}
       {isDebugMode && (
         <div className="absolute top-4 right-4 z-10">

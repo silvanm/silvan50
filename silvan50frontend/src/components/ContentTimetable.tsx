@@ -29,7 +29,7 @@ const ContentTimetable: React.FC<ContentSectionProps> = ({
         ref={contentRef}
         className={`content-body ${!isActive ? 'collapsed' : ''}`}
         style={{
-          maxHeight: isActive ? '100vh' : '0', // Use a very large value when active
+          maxHeight: isActive ? '100dvh' : '0', // Use a very large value when active
         }}
       >
         <table className="timetable-container py-2 w-full">

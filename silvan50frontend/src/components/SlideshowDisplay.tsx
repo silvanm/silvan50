@@ -17,7 +17,7 @@ const TRANSITION_DURATION = 5; // seconds
 const SLIDE_DISPLAY_DURATION = 7; // seconds to display each slide before transitioning
 const MAX_TRIANGLE_DELAY = 4; // maximum delay in seconds for triangle animations based on position
 const PRELOAD_SLIDES = 2; // Number of slides to preload ahead
-const THUMBNAIL_SIZE = 50; // Size of the thumbnail in pixels
+const ICON_SIZE = 12; // Size of the info icon in pixels
 
 interface SlideshowDisplayProps {
   onDominantColorsChange: (colors: string[]) => void;
@@ -41,6 +41,7 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
   // Added for thumbnail functionality
   const [currentImagePath, setCurrentImagePath] = useState<string | null>(null);
   const [isImageExpanded, setIsImageExpanded] = useState(false);
+  const [dominantColor, setDominantColor] = useState("#ffffff");
   
   // Use a ref for the pause state to avoid closure issues in intervals
   const isPausedRef = useRef(false);
@@ -106,21 +107,29 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
     setIsPaused(newPauseState);
   };
   
-  // Function to update the current image path for the thumbnail
+  // Update the current image path and dominant color for the thumbnail
   const updateCurrentImagePath = (slideIndex: number) => {
     const manifest = manifestRef.current;
     if (!manifest) return;
 
     const slideInfo = manifest.slides.find(s => s.index === slideIndex);
-    if (slideInfo && slideInfo.image_path) {
-      setCurrentImagePath(slideInfo.image_path);
-    } else {
-      // Try to get the image path from the loaded slide
-      const slide = loadedSlidesRef.current.get(slideIndex);
-      if (slide && slide.image_path) {
-        setCurrentImagePath(slide.image_path);
+    if (slideInfo) {
+      // Set dominant color for the icon
+      if (slideInfo.dominant_colors && slideInfo.dominant_colors.length > 0) {
+        setDominantColor(slideInfo.dominant_colors[0]);
+      }
+      
+      // Set image path
+      if (slideInfo.image_path) {
+        setCurrentImagePath(slideInfo.image_path);
       } else {
-        setCurrentImagePath(null);
+        // Try to get the image path from the loaded slide
+        const slide = loadedSlidesRef.current.get(slideIndex);
+        if (slide && slide.image_path) {
+          setCurrentImagePath(slide.image_path);
+        } else {
+          setCurrentImagePath(null);
+        }
       }
     }
   };
@@ -652,19 +661,34 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
         className="slide-name absolute bottom-8 left-8 z-10 text-white hidden"
       ></div>
       
-      {/* Thumbnail container */}
+      {/* Info icon instead of thumbnail */}
       {currentImagePath && (
-        <div className="thumbnail-container absolute bottom-4 left-4 z-20">
+        <div className="info-icon-container absolute bottom-8 left-8 z-20">
           <div 
-            className="thumbnail cursor-pointer border-2 border-white shadow-lg overflow-hidden transition-all"
-            style={{ width: THUMBNAIL_SIZE, height: THUMBNAIL_SIZE }}
+            className="info-icon cursor-pointer rounded-full flex items-center justify-center transition-all hover:scale-110"
+            style={{ 
+              width: ICON_SIZE, 
+              height: ICON_SIZE,
+              backgroundColor: dominantColor,
+              color: "#ffffff",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.3)"
+            }}
             onClick={() => setIsImageExpanded(true)}
           >
-            <img 
-              src={`/data/${currentImagePath}`} 
-              alt="Original" 
-              className="w-full h-full object-cover"
-            />
+            <svg 
+              xmlns="http://www.w3.org/2000/svg" 
+              viewBox="0 0 24 24" 
+              fill="none" 
+              stroke="currentColor" 
+              strokeWidth="2" 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+              style={{ width: ICON_SIZE/2, height: ICON_SIZE/2 }}
+            >
+              <circle cx="12" cy="12" r="10"></circle>
+              <path d="M12 16v-4"></path>
+              <path d="M12 8h.01"></path>
+            </svg>
           </div>
         </div>
       )}
@@ -679,7 +703,7 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
             <img 
               src={`/data/${currentImagePath}`} 
               alt="Original" 
-              className="max-w-full max-h-[80vh] object-contain"
+              className="max-w-full max-h-[80dvh] object-contain"
             />
             <button 
               className="absolute top-4 right-4 bg-white text-black w-8 h-8 rounded-full flex items-center justify-center"
