@@ -19,7 +19,7 @@ const NavigationButtons: React.FC<NavigationButtonsProps> = ({
   ];
 
   return (
-    <div className="navigation-controls flex justify-center items-center">
+    <div className="navigation-controls flex justify-center items-center py-1">
       {pages.map((page) => (
         <button 
           key={page.type}

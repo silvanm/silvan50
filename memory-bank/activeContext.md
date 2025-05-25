@@ -68,6 +68,13 @@
         * The new JSON serialization format where transitions are nested within each slide object.
     * All tests are currently passing after these adjustments.
 
+11. **Info Icon UI Improvements (January 2025):**
+    * Doubled the size of the info-icon-container from 12px to 24px (`ICON_SIZE = 24`)
+    * Fixed color inconsistency by hardcoding the icon background to black (`#000000`) and text to white (`#ffffff`)
+    * Removed dynamic color behavior that was changing the icon color based on slide dominant colors
+    * Removed unused `dominantColor` state and related setter calls to clean up the code
+    * All changes tested and verified to build successfully without TypeScript errors
+
 **Next Steps:**
 
 * Build new frontend from scratch with support for the standardized triangle transitions, including the initial black slide.

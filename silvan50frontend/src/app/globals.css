@@ -90,11 +90,19 @@ body {
 }
 
 .vertical-display-container {
-  @apply text-5xl font-bold;
+  @apply text-xl md:text-2xl lg:text-3xl 2xl:text-5xl font-bold;
+}
+
+.vertical-display-container > div {
+  @apply  lg:py-0 2xl:py-1;
 }
 
 .timetable-row td {
-  @apply align-top text-sm md:text-3xl;
+  @apply align-top text-sm md:text-xl lg:text-2xl 2xl:text-4xl font-bold;
+}
+
+.timetable-content a {
+  @apply underline;
 }
 
 /* Content transition animations */

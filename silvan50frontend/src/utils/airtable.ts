@@ -5,7 +5,7 @@ export interface RSVPData {
   name: string;
   attending: 'yes' | 'no' | 'maybe';
   guestCount: number;
-  dietaryRestrictions?: string;
+  comment?: string;
 }
 
 /**

@@ -17,7 +17,7 @@ const TRANSITION_DURATION = 5; // seconds
 const SLIDE_DISPLAY_DURATION = 7; // seconds to display each slide before transitioning
 const MAX_TRIANGLE_DELAY = 4; // maximum delay in seconds for triangle animations based on position
 const PRELOAD_SLIDES = 2; // Number of slides to preload ahead
-const ICON_SIZE = 12; // Size of the info icon in pixels
+const ICON_SIZE = 24; // Size of the info icon in pixels
 
 interface SlideshowDisplayProps {
   onDominantColorsChange: (colors: string[]) => void;
@@ -41,7 +41,7 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
   // Added for thumbnail functionality
   const [currentImagePath, setCurrentImagePath] = useState<string | null>(null);
   const [isImageExpanded, setIsImageExpanded] = useState(false);
-  const [dominantColor, setDominantColor] = useState("#ffffff");
+
   
   // Use a ref for the pause state to avoid closure issues in intervals
   const isPausedRef = useRef(false);
@@ -114,11 +114,6 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
 
     const slideInfo = manifest.slides.find(s => s.index === slideIndex);
     if (slideInfo) {
-      // Set dominant color for the icon
-      if (slideInfo.dominant_colors && slideInfo.dominant_colors.length > 0) {
-        setDominantColor(slideInfo.dominant_colors[0]);
-      }
-      
       // Set image path
       if (slideInfo.image_path) {
         setCurrentImagePath(slideInfo.image_path);
@@ -669,7 +664,7 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
             style={{ 
               width: ICON_SIZE, 
               height: ICON_SIZE,
-              backgroundColor: dominantColor,
+              backgroundColor: "#000000",
               color: "#ffffff",
               boxShadow: "0 2px 8px rgba(0,0,0,0.3)"
             }}
