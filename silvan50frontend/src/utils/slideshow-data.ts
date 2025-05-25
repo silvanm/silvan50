@@ -34,6 +34,7 @@ export interface ManifestSlide {
   dominant_colors: string[];
   transitions: SlideTransition[];
   image_path?: string;
+  description?: string;
 }
 
 export interface SlideshowManifest {

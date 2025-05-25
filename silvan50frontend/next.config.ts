@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  devIndicators: false, // Disable the development indicators including error overlay
   async headers() {
     return [
       {

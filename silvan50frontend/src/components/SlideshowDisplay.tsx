@@ -17,7 +17,7 @@ const TRANSITION_DURATION = 5; // seconds
 const SLIDE_DISPLAY_DURATION = 7; // seconds to display each slide before transitioning
 const MAX_TRIANGLE_DELAY = 4; // maximum delay in seconds for triangle animations based on position
 const PRELOAD_SLIDES = 2; // Number of slides to preload ahead
-const ICON_SIZE = 24; // Size of the info icon in pixels
+const ICON_SIZE = 36; // Size of the info icon in pixels
 
 interface SlideshowDisplayProps {
   onDominantColorsChange: (colors: string[]) => void;
@@ -40,7 +40,11 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
   
   // Added for thumbnail functionality
   const [currentImagePath, setCurrentImagePath] = useState<string | null>(null);
+  const [currentDescription, setCurrentDescription] = useState<string | null>(null);
   const [isImageExpanded, setIsImageExpanded] = useState(false);
+  
+  // Use a ref for the expanded state to avoid closure issues
+  const isImageExpandedRef = useRef(false);
 
   
   // Use a ref for the pause state to avoid closure issues in intervals
@@ -75,6 +79,12 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
     }
   }, [isPaused]);
 
+  // Sync isImageExpanded state with ref
+  useEffect(() => {
+    console.log(`[State] isImageExpanded state changed to: ${isImageExpanded}`);
+    isImageExpandedRef.current = isImageExpanded;
+  }, [isImageExpanded]);
+
   // Function to convert RGB array to CSS color string
   const rgbToString = (rgb: [number, number, number], opacity = 1) => {
     return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${opacity})`;
@@ -107,7 +117,7 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
     setIsPaused(newPauseState);
   };
   
-  // Update the current image path and dominant color for the thumbnail
+  // Update the current image path and description for the thumbnail
   const updateCurrentImagePath = (slideIndex: number) => {
     const manifest = manifestRef.current;
     if (!manifest) return;
@@ -126,12 +136,24 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
           setCurrentImagePath(null);
         }
       }
+      
+      // Set description
+      setCurrentDescription(slideInfo.description || null);
     }
   };
 
   // Core logic for one transition cycle
   const advanceSlideAndAnimate = async () => {
     console.log(`[Advance] Starting advance, isPaused: ${isPausedRef.current}`);
+    console.log(`[Advance] isImageExpanded ref: ${isImageExpandedRef.current}`);
+    
+    // Close the expanded image modal when starting a new slide transition
+    if (isImageExpandedRef.current) {
+      console.log("[Advance] Closing expanded image modal due to slide transition");
+      setIsImageExpanded(false);
+    } else {
+      console.log("[Advance] Image modal is not expanded, no need to close");
+    }
     
     // Double-check pause state using ref to avoid closure issues
     if (isPausedRef.current) {
@@ -300,10 +322,13 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
           return;
         }
 
-        // Set initial image path if available
+        // Set initial image path and description if available
         if (manifest.slides[0].image_path) {
           setCurrentImagePath(manifest.slides[0].image_path);
         }
+        
+        // Set initial description
+        setCurrentDescription(manifest.slides[0].description || null);
 
         if (
           manifest.slides[0].dominant_colors &&
@@ -668,7 +693,10 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
               color: "#ffffff",
               boxShadow: "0 2px 8px rgba(0,0,0,0.3)"
             }}
-            onClick={() => setIsImageExpanded(true)}
+            onClick={() => {
+              console.log("[InfoIcon] Opening image modal");
+              setIsImageExpanded(true);
+            }}
           >
             <svg 
               xmlns="http://www.w3.org/2000/svg" 
@@ -700,8 +728,16 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
               alt="Original" 
               className="max-w-full max-h-[80dvh] object-contain"
             />
+            
+            {/* Description overlay */}
+            {currentDescription && (
+              <div className="absolute bottom-4 left-4 bg-white text-black p-1 m-1 rounded-sm shadow-lg max-w-md">
+                <p className="text-sm font-medium">{currentDescription}</p>
+              </div>
+            )}
+            
             <button 
-              className="absolute top-4 right-4 bg-white text-black w-8 h-8 rounded-full flex items-center justify-center"
+              className="absolute top-4 right-4 bg-white text-black w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors"
               onClick={(e) => {
                 e.stopPropagation();
                 setIsImageExpanded(false);

@@ -148,7 +148,7 @@ def test_reorder_colors():
 
 def extract_dominant_colors(image_path, num_colors=5):
     """
-    Extract dominant colors from an image using K-means clustering.
+    Extract dominant colors from an image using K-means clustering in HSV color space.
 
     Args:
         image_path (str): Path to the image file
@@ -174,21 +174,34 @@ def extract_dominant_colors(image_path, num_colors=5):
         img_array = np.array(img)
         pixels = img_array.reshape(-1, 3)
 
-        # Apply K-means clustering
-        kmeans = KMeans(n_clusters=num_colors)
-        kmeans.fit(pixels)
+        # Convert RGB pixels to HSV for clustering
+        hsv_pixels = np.array([rgb_to_hsv(pixel) for pixel in pixels])
 
-        # Get colors and sort by cluster size
-        colors = kmeans.cluster_centers_
+        # Apply K-means clustering in HSV space
+        kmeans = KMeans(n_clusters=num_colors)
+        kmeans.fit(hsv_pixels)
+
+        # Get HSV cluster centers and convert back to RGB
+        hsv_centers = kmeans.cluster_centers_
         counts = np.bincount(kmeans.labels_)
+
+        # Convert HSV centers back to RGB
+        rgb_colors = []
+        for hsv_center in hsv_centers:
+            h, s, v = hsv_center
+            # Convert back to RGB (0-1 range)
+            r, g, b = colorsys.hsv_to_rgb(h, s, v)
+            # Convert to 0-255 range
+            rgb_color = (int(r * 255), int(g * 255), int(b * 255))
+            rgb_colors.append(rgb_color)
+
+        # Sort colors by cluster size
         colors_with_counts = sorted(
-            zip(colors, counts), key=lambda x: x[1], reverse=True
+            zip(rgb_colors, counts), key=lambda x: x[1], reverse=True
         )
 
         # Convert to hex format
-        hex_colors = [
-            "#%02x%02x%02x" % tuple(map(int, color)) for color, _ in colors_with_counts
-        ]
+        hex_colors = ["#%02x%02x%02x" % color for color, _ in colors_with_counts]
 
         # Reorder colors based on criteria
         reordered_colors = reorder_colors(hex_colors)
