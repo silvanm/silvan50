@@ -15,6 +15,7 @@ export default function Home() {
     main: ["#000000", "#000000", "#000000"], 
     rsvp: ["#000000", "#000000", "#000000"], 
     timetable: ["#000000", "#000000", "#000000"], 
+    infos: ["#000000", "#000000", "#000000"], 
   });
   
   // Add state for debug mode
@@ -56,6 +57,7 @@ export default function Home() {
       main: [newColors[0], newColors[1], newColors[2]],
       rsvp: [newColors[0], newColors[1], newColors[2]],
       timetable: [newColors[0], newColors[1], newColors[2]],
+      infos: [newColors[0], newColors[1], newColors[2]],
     });
   };
 

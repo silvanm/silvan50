@@ -49,6 +49,7 @@
 
 body {
   background: rgb(var(--background-rgb));
+  font-family: Arial, Helvetica, sans-serif;
 }
 
 .slide-name {
@@ -66,6 +67,10 @@ body {
 
 .colortransition {
   transition: color 5s ease-in-out, background-color 5s ease-in-out;
+}
+
+.content-header {
+  @apply tracking-tight;
 }
 
 .content-header p:hover {
@@ -97,12 +102,20 @@ body {
   @apply  lg:py-0 2xl:py-1;
 }
 
-.timetable-row td {
-  @apply align-top text-sm md:text-xl lg:text-2xl 2xl:text-4xl font-bold;
+.timetable-row td, .infos-row td {
+  @apply align-top text-sm md:text-lg lg:text-xl 2xl:text-3xl font-bold;
+}
+
+.infos-container p {
+  @apply text-sm md:text-xl lg:text-2xl 2xl:text-4xl font-bold;
 }
 
 .timetable-content a {
   @apply underline;
+}
+
+.map-icon {
+  @apply w-6 h-6 md:w-6 md:h-6 lg:w-8 lg:h-8 2xl:w-10 2xl:h-10;
 }
 
 /* Content transition animations */

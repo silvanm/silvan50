@@ -79,10 +79,22 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
     }
   }, [isPaused]);
 
-  // Sync isImageExpanded state with ref
+  // Sync isImageExpanded state with ref and handle pause/resume
   useEffect(() => {
     console.log(`[State] isImageExpanded state changed to: ${isImageExpanded}`);
     isImageExpandedRef.current = isImageExpanded;
+    
+    // Pause slideshow when image is expanded, resume when closed
+    if (isImageExpanded) {
+      console.log("[ImageModal] Image expanded - pausing slideshow");
+      setIsPaused(true);
+    } else {
+      console.log("[ImageModal] Image closed - resuming slideshow (if not manually paused)");
+      // Only resume if the slideshow wasn't manually paused by the user
+      if (!wasManuallyPausedRef.current) {
+        setIsPaused(false);
+      }
+    }
   }, [isImageExpanded]);
 
   // Function to convert RGB array to CSS color string
@@ -145,15 +157,6 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
   // Core logic for one transition cycle
   const advanceSlideAndAnimate = async () => {
     console.log(`[Advance] Starting advance, isPaused: ${isPausedRef.current}`);
-    console.log(`[Advance] isImageExpanded ref: ${isImageExpandedRef.current}`);
-    
-    // Close the expanded image modal when starting a new slide transition
-    if (isImageExpandedRef.current) {
-      console.log("[Advance] Closing expanded image modal due to slide transition");
-      setIsImageExpanded(false);
-    } else {
-      console.log("[Advance] Image modal is not expanded, no need to close");
-    }
     
     // Double-check pause state using ref to avoid closure issues
     if (isPausedRef.current) {
@@ -645,7 +648,7 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
       <div
         className="slideshow-loading flex justify-center items-center bg-black text-white w-full h-full"
       >
-        Loading slideshow...
+        Bitte warten...
       </div>
     );
   }
@@ -737,7 +740,7 @@ export default function Slideshow({ onDominantColorsChange }: SlideshowDisplayPr
             )}
             
             <button 
-              className="absolute top-4 right-4 bg-white text-black w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors"
+              className="absolute top-6 right-6 bg-white text-black w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors"
               onClick={(e) => {
                 e.stopPropagation();
                 setIsImageExpanded(false);

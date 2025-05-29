@@ -37,7 +37,7 @@ const ContentTimetable: React.FC<ContentSectionProps> = ({
           <tbody>
             {schedule.map((item, index) => (
               <tr key={index} className="timetable-row mb-1">
-                <td className="timetable-time pr-2 whitespace-nowrap colortransition text-right" style={{ color: colors[1] }}>{item.time}</td>
+                <td className="timetable-time pr-2 whitespace-nowrap colortransition" style={{ color: colors[1] }}>{item.time}</td>
                 <td className="timetable-event" dangerouslySetInnerHTML={{__html: item.event}}></td>
               </tr>
             ))}

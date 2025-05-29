@@ -1,14 +1,10 @@
 import React, { useState } from "react";
-import { PageType } from "../types/DisplayTypes";
+import { PageType, PageColors } from "../types/DisplayTypes";
 import VerticalDisplay from "./VerticalDisplay";
 import HorizontalDisplay from "./HorizontalDisplay";
 
 interface InfoDisplayProps {
-  colors: {
-    main: string[];
-    rsvp: string[];
-    timetable: string[];
-  };
+  colors: PageColors;
   isHorizontal?: boolean;
 }
 

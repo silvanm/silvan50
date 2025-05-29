@@ -10,7 +10,7 @@ const ContentMain: React.FC<ContentSectionProps> = ({
 
   return (
     <div
-      className={`main-content font-bold colortransition ${
+      className={`main-content font-bold colortransition tracking-tight ${
         !isActive ? "collapsed" : ""
       }`}
       onClick={onClick}
@@ -42,9 +42,7 @@ const ContentMain: React.FC<ContentSectionProps> = ({
             Erlenstrasse&nbsp;3C{" "}
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="inline-block align-baseline"
-              width="24"
-              height="24"
+              className="inline-block align-baseline map-icon"
               viewBox="0 0 16 16"
             >
               <path

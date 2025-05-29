@@ -3,6 +3,7 @@ import { DisplayProps, PageType } from "../types/DisplayTypes";
 import ContentMain from "./ContentMain";
 import ContentRSVP from "./ContentRSVP";
 import ContentTimetable from "./ContentTimetable";
+import ContentInfos from "./ContentInfos";
 import NavigationButtons from "./NavigationButtons";
 import { useSwipeable } from "react-swipeable";
 
@@ -21,12 +22,13 @@ const HorizontalDisplay: React.FC<DisplayProps> = ({
       case "main": return 0;
       case "rsvp": return -100;
       case "timetable": return -200;
+      case "infos": return -300;
       default: return 0;
     }
   };
 
   // Order of pages for navigation
-  const pageOrder: PageType[] = ["main", "rsvp", "timetable"];
+  const pageOrder: PageType[] = ["main", "rsvp", "timetable", "infos"];
   
   // Get current page index
   const currentIndex = pageOrder.indexOf(activePage);
@@ -88,7 +90,7 @@ const HorizontalDisplay: React.FC<DisplayProps> = ({
   };
 
   return (
-    <div className="horizontal-display-container h-full overflow-hidden relative">
+    <div className="horizontal-display-container h-full overflow-hidden relative ">
       {/* Fixed navigation buttons */}
       <div className="absolute left-0 right-0 bottom-5 z-10">
         <NavigationButtons 
@@ -101,7 +103,7 @@ const HorizontalDisplay: React.FC<DisplayProps> = ({
       {/* Sliding content with swipe handlers */}
       <div 
         {...swipeHandlers}
-        className="horizontal-display flex flex-row w-[300vw] h-full"
+        className="horizontal-display flex flex-row w-[400vw] h-full"
         style={getTransformStyle()}
       >
         {/* Main Section */}
@@ -142,6 +144,20 @@ const HorizontalDisplay: React.FC<DisplayProps> = ({
         >
           <ContentTimetable 
             colors={colors.timetable} 
+            isActive={true} // Always show content in horizontal view
+          />
+        </div>
+
+        {/* Infos Section */}
+        <div 
+          className="infos-section colortransition w-screen h-full p-5 flex flex-col "
+          style={{
+            color: colors.infos[2],
+            backgroundColor: colors.infos[0],
+          }}
+        >
+          <ContentInfos 
+            colors={colors.infos} 
             isActive={true} // Always show content in horizontal view
           />
         </div>

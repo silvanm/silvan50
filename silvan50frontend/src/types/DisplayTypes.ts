@@ -1,9 +1,10 @@
-export type PageType = 'main' | 'rsvp' | 'timetable';
+export type PageType = 'main' | 'rsvp' | 'timetable' | 'infos';
 
 export interface PageColors {
   main: string[];
   rsvp: string[];
   timetable: string[];
+  infos: string[];
 }
 
 export interface DisplayProps {

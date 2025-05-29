@@ -3,6 +3,7 @@ import { DisplayProps } from "../types/DisplayTypes";
 import ContentMain from "./ContentMain";
 import ContentRSVP from "./ContentRSVP";
 import ContentTimetable from "./ContentTimetable";
+import ContentInfos from "./ContentInfos";
 
 const VerticalDisplay: React.FC<DisplayProps> = ({
   colors,
@@ -53,6 +54,21 @@ const VerticalDisplay: React.FC<DisplayProps> = ({
           colors={colors.timetable} 
           isActive={activePage === "timetable"} 
           onClick={() => setActivePage("timetable")}
+        />
+      </div>
+
+      <div 
+        className="infos-section colortransition"
+        style={{
+          color: colors.infos[2],
+          transition: "flex 0.5s ease",
+          flex: activePage === "infos" ? "1 0 auto" : "0 0 auto"
+        }}
+      >
+        <ContentInfos 
+          colors={colors.infos} 
+          isActive={activePage === "infos"} 
+          onClick={() => setActivePage("infos")}
         />
       </div>
     </div>

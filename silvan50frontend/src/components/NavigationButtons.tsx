@@ -16,6 +16,7 @@ const NavigationButtons: React.FC<NavigationButtonsProps> = ({
     { type: "main", label: "Main Info Page" },
     { type: "rsvp", label: "RSVP Page" },
     { type: "timetable", label: "Timetable Page" },
+    { type: "infos", label: "Infos Page" },
   ];
 
   return (
